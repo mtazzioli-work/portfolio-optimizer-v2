@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portfolio Optimizer v2
 
-## Getting Started
+Multi-usuario: un **Portfolio** por persona, **Snapshots** en el tiempo y **Reviews** con IA que consumen cuota mensual.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 App Router
+- Clerk (email/contraseña)
+- Neon Postgres + Drizzle ORM
+- Anthropic (reviews)
+- Resend (emails a admins)
+
+## Setup
+
+1. Instalar dependencias (ya incluidas si clonaste con `node_modules`):
+
+```bash
+npm install
+```
+
+2. Copiar variables de entorno:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Completar `.env.local` (Clerk, `DATABASE_URL`, etc.).
+
+4. Aplicar schema a Neon:
+
+```bash
+npm run db:push
+npm run db:seed
+```
+
+5. En Clerk Dashboard: webhook `user.created` → `https://tu-dominio/api/webhooks/clerk` con secret en `CLERK_WEBHOOK_SECRET`.
+
+6. Desarrollo:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts de base de datos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | Descripción |
+|--------|-------------|
+| `npm run db:generate` | Generar migraciones Drizzle |
+| `npm run db:migrate` | Aplicar migraciones |
+| `npm run db:push` | Push schema directo (dev) |
+| `npm run db:studio` | Drizzle Studio |
+| `npm run db:seed` | Seed de `app_settings` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Ramas
 
-## Learn More
+Git Flow lite: `main` (producción), `develop` (integración). Trabajo diario en `feature/*` → PR a `develop`.
 
-To learn more about Next.js, take a look at the following resources:
+## Disclaimer
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Solo seguimiento personal y educación. No es asesoramiento financiero.
