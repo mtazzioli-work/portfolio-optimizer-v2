@@ -31,9 +31,9 @@ describe("notifyAdminsNewUser", () => {
     vi.clearAllMocks();
     delete process.env.RESEND_API_KEY;
     delete process.env.RESEND_FROM_EMAIL;
-    mockResendConstructor.mockImplementation(() => ({
-      emails: { send: mockSend },
-    }));
+    mockResendConstructor.mockImplementation(function ResendMock() {
+      return { emails: { send: mockSend } };
+    });
     mockAdminRows([]);
   });
 
