@@ -2,11 +2,18 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { investmentProfiles } from "@/db/schema";
+import { ApplyTemplateForm } from "@/components/settings/apply-template-form";
+import { InvestmentProfileEditor } from "@/components/settings/investment-profile-editor";
+import {
+  DEFAULT_INVESTMENT_PROFILE,
+  type InvestmentRules,
+} from "@/lib/default-investment-profile";
 import {
   INVESTMENT_PROFILE_TEMPLATES,
   getTemplateById,
   type ProfileTemplateId,
 } from "@/lib/investment-profile-templates";
+import { parseProfileFromEditing, getProfileEditorText } from "@/lib/investment-profile-text";
 import { canEditInvestmentProfile } from "@/lib/access";
 import { getOrCreateUser } from "@/lib/users";
 import { redirect } from "next/navigation";
@@ -14,27 +21,97 @@ import { redirect } from "next/navigation";
 async function applyTemplate(formData: FormData) {
   "use server";
 
+  const templateId = formData.get("templateId") as ProfileTemplateId;
   const user = await getOrCreateUser();
   if (!user || !canEditInvestmentProfile(user.accessStatus)) {
     throw new Error("No autorizado");
   }
 
-  const templateId = formData.get("templateId") as ProfileTemplateId;
   const template = getTemplateById(templateId);
   if (!template) {
     throw new Error("Plantilla inválida");
   }
 
-  await db
-    .update(investmentProfiles)
-    .set({
-      rulesJson: template.rules,
+  const [existing] = await db
+    .select({ id: investmentProfiles.id })
+    .from(investmentProfiles)
+    .where(eq(investmentProfiles.userId, user.clerkUserId))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(investmentProfiles)
+      .set({
+        rulesJson: template.rules,
+        label: `Estrategia ${template.name}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(investmentProfiles.userId, user.clerkUserId));
+  } else {
+    await db.insert(investmentProfiles).values({
+      userId: user.clerkUserId,
       label: `Estrategia ${template.name}`,
-      updatedAt: new Date(),
-    })
-    .where(eq(investmentProfiles.userId, user.clerkUserId));
+      rulesJson: template.rules,
+    });
+  }
 
   revalidatePath("/settings/investment-profile");
+}
+
+async function saveProfile(
+  _prev: { error?: string; success?: boolean } | null,
+  formData: FormData,
+): Promise<{ error?: string; success?: boolean }> {
+  "use server";
+
+  const profileText = formData.get("profileText");
+
+  const user = await getOrCreateUser();
+  if (!user || !canEditInvestmentProfile(user.accessStatus)) {
+    return { error: "No autorizado" };
+  }
+
+  if (typeof profileText !== "string" || !profileText.trim()) {
+    return { error: "El texto del perfil no puede estar vacío." };
+  }
+
+  const [profile] = await db
+    .select()
+    .from(investmentProfiles)
+    .where(eq(investmentProfiles.userId, user.clerkUserId))
+    .limit(1);
+
+  const base =
+    (profile?.rulesJson as InvestmentRules | undefined) ??
+    DEFAULT_INVESTMENT_PROFILE;
+
+  const parsed = parseProfileFromEditing(profileText, base);
+  if (!parsed.ok) {
+    return { error: parsed.error };
+  }
+
+  const rulesToSave = {
+    ...parsed.rules,
+    profileEditorText: profileText,
+  };
+
+  if (profile) {
+    await db
+      .update(investmentProfiles)
+      .set({
+        rulesJson: rulesToSave,
+        updatedAt: new Date(),
+      })
+      .where(eq(investmentProfiles.userId, user.clerkUserId));
+  } else {
+    await db.insert(investmentProfiles).values({
+      userId: user.clerkUserId,
+      rulesJson: rulesToSave,
+    });
+  }
+
+  revalidatePath("/settings/investment-profile");
+  return { success: true };
 }
 
 export default async function InvestmentProfilePage() {
@@ -48,6 +125,16 @@ export default async function InvestmentProfilePage() {
     .limit(1);
 
   const canEdit = canEditInvestmentProfile(user.accessStatus);
+  const storedRules =
+    (profile?.rulesJson as InvestmentRules | undefined) ??
+    DEFAULT_INVESTMENT_PROFILE;
+  const rules = storedRules;
+  const editorText = getProfileEditorText(profile?.rulesJson, rules);
+  const activeTemplateId = profile
+    ? INVESTMENT_PROFILE_TEMPLATES.find((t) =>
+        profile.label.includes(t.name),
+      )?.id
+    : undefined;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -82,21 +169,24 @@ export default async function InvestmentProfilePage() {
               <li>Rebalanceo: {template.rules.rebalancingPolicy}</li>
             </ul>
             {canEdit ? (
-              <form action={applyTemplate} className="mt-4">
-                <input type="hidden" name="templateId" value={template.id} />
-                <button
-                  type="submit"
-                  className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-                >
-                  Usar esta plantilla
-                </button>
-              </form>
+              <ApplyTemplateForm
+                templateId={template.id}
+                isActive={activeTemplateId === template.id}
+                applyTemplate={applyTemplate}
+              />
             ) : (
               <p className="mt-4 text-xs text-zinc-400">Solo lectura</p>
             )}
           </article>
         ))}
       </div>
+
+      <InvestmentProfileEditor
+        key={profile?.updatedAt?.toISOString() ?? "default"}
+        initialText={editorText}
+        canEdit={canEdit}
+        saveProfile={saveProfile}
+      />
     </div>
   );
 }
