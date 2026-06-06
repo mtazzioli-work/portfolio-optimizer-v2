@@ -1,16 +1,16 @@
 import { render, screen } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@/db/schema";
 
-const { mockGetOrCreateUser, mockRedirect } = vi.hoisted(() => ({
+const { mockClerkProvider, mockGetOrCreateUser, mockRedirect } = vi.hoisted(() => ({
+  mockClerkProvider: vi.fn(({ children }: { children: React.ReactNode }) => children),
   mockGetOrCreateUser: vi.fn(),
   mockRedirect: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs", () => ({
-  ClerkProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="clerk-provider">{children}</div>
-  ),
+  ClerkProvider: mockClerkProvider,
   UserButton: () => <div data-testid="user-button" />,
 }));
 
@@ -80,15 +80,16 @@ describe("layouts", () => {
   });
 
   it("wraps the application in Clerk and renders the disclaimer footer", () => {
-    render(
+    const markup = renderToStaticMarkup(
       <RootLayout>
         <main>Root child</main>
       </RootLayout>,
     );
 
-    expect(screen.getByTestId("clerk-provider")).toBeInTheDocument();
-    expect(screen.getByText("Root child")).toBeInTheDocument();
-    expect(screen.getByText(/No constituye asesoramiento financiero/)).toBeInTheDocument();
+    expect(mockClerkProvider).toHaveBeenCalledOnce();
+    expect(markup).toContain('lang="es"');
+    expect(markup).toContain("Root child");
+    expect(markup).toContain("No constituye asesoramiento financiero");
   });
 
   it("redirects app layout visitors without a user to sign-in", async () => {

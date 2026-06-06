@@ -1,23 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockClerkMiddleware, mockCreateRouteMatcher } = vi.hoisted(() => ({
-  mockClerkMiddleware: vi.fn(),
-  mockCreateRouteMatcher: vi.fn(),
+  mockClerkMiddleware: vi.fn((handler) => handler),
+  mockCreateRouteMatcher: vi.fn((patterns: string[]) => {
+    const prefixes = patterns.map((pattern) => pattern.replace("(.*)", ""));
+    return (request: Request) => {
+      const pathname = new URL(request.url).pathname;
+      return prefixes.some((prefix) => pathname.startsWith(prefix));
+    };
+  }),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
   clerkMiddleware: mockClerkMiddleware,
   createRouteMatcher: mockCreateRouteMatcher,
 }));
-
-mockCreateRouteMatcher.mockImplementation((patterns: string[]) => {
-  const prefixes = patterns.map((pattern) => pattern.replace("(.*)", ""));
-  return (request: Request) => {
-    const pathname = new URL(request.url).pathname;
-    return prefixes.some((prefix) => pathname.startsWith(prefix));
-  };
-});
-mockClerkMiddleware.mockImplementation((handler) => handler);
 
 import middleware, { config } from "@/middleware";
 
