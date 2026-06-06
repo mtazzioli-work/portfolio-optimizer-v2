@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 type SaveProfileState = { error?: string; success?: boolean } | null;
@@ -35,10 +35,6 @@ export function InvestmentProfileEditor({
 }: Props) {
   const [text, setText] = useState(initialText);
   const [state, formAction] = useActionState(saveProfile, null);
-
-  useEffect(() => {
-    setText(initialText);
-  }, [initialText]);
 
   return (
     <section className="space-y-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
