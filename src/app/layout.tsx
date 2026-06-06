@@ -29,8 +29,9 @@ export default function RootLayout({
       <html
         lang="es"
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        suppressHydrationWarning
       >
-        <body className="flex min-h-full flex-col">
+        <body className="flex min-h-full flex-col" suppressHydrationWarning>
           <div className="flex min-h-full flex-1 flex-col">{children}</div>
           <footer className="border-t border-zinc-200 px-4 py-3 text-center text-xs text-zinc-500 dark:border-zinc-800">
             Esta aplicación es solo para seguimiento personal y educación. No
