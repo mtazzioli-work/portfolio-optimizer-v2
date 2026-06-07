@@ -12,13 +12,6 @@ export default function WaitingPage() {
           className="font-medium text-zinc-900 underline dark:text-zinc-100"
         >
           perfil de inversión
-        </a>{" "}
-        y{" "}
-        <a
-          href="/settings/liquid-assets"
-          className="font-medium text-zinc-900 underline dark:text-zinc-100"
-        >
-          activos líquidos
         </a>
         .
       </p>

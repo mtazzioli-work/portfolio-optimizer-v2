@@ -32,8 +32,7 @@ export default async function DashboardPage() {
         {user.accessStatus === "pending" && (
           <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
             Usuario pendiente, aguarde su aprobación para optimizar su
-            portafolio. Mientras tanto podés configurar tu perfil de inversión y
-            activos líquidos.
+            portafolio. Mientras tanto podés configurar tu perfil de inversión.
           </p>
         )}
         {user.accessStatus === "paused" && (

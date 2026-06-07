@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,6 +33,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <body className="flex min-h-full flex-col" suppressHydrationWarning>
+          <Toaster richColors position="top-center" />
           <div className="flex min-h-full flex-1 flex-col">{children}</div>
           <footer className="border-t border-zinc-200 px-4 py-3 text-center text-xs text-zinc-500 dark:border-zinc-800">
             Esta aplicación es solo para seguimiento personal y educación. No

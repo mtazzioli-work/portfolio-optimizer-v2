@@ -39,14 +39,6 @@ const NAV_ITEMS: NavItem[] = [
       accessStatus === "paused",
   },
   {
-    href: "/settings/liquid-assets",
-    label: "Activos líquidos",
-    show: ({ accessStatus }) =>
-      accessStatus === "active" ||
-      accessStatus === "pending" ||
-      accessStatus === "paused",
-  },
-  {
     href: "/admin",
     label: "Admin",
     show: ({ role }) => role === "admin",

@@ -13,7 +13,7 @@ Una foto inmutable del estado del portfolio en un instante (posiciones, valor to
 _Avoid_: portfolio (cuando se refiere a una versión histórica), upload, versión
 
 **Review**:
-El resultado estructurado de la revisión con IA (técnico + fundamental + reglas) sobre un snapshot específico; es la acción que consume cuota mensual de optimización.
+El resultado estructurado de la revisión con IA (técnico + fundamental + reglas) sobre un snapshot específico; es la acción que consume cuota mensual de optimización. Usa el **Investment profile** y los **Liquid assets** persistidos en el momento de la solicitud (no al subir el snapshot). Ese contexto queda registrado junto a la review para auditoría.
 _Avoid_: análisis (genérico), optimización (como sustantivo ambiguo), reporte
 
 **Position**:
@@ -43,6 +43,8 @@ No usar `approved` en código ni docs — siempre `active`.
 - Un **Portfolio** tiene muchos **Snapshots** ordenados en el tiempo
 - Un **Snapshot** tiene muchas **Positions**
 - Un **User** puede tener muchas **Reviews**; cada **Review** pertenece a exactamente un **Snapshot**
+- Un **Snapshot** tiene como máximo una **Review** exitosa (`status=done`); si falló, se puede reintentar sin consumir cuota adicional
+- La cuota mensual se consume solo cuando la **Review** termina exitosamente (`status=done`, `claudeInvoked=true`)
 - Un **User** tiene un **Investment profile** y cero o más **Liquid assets**
 
 ## Example dialogue
@@ -53,10 +55,19 @@ No usar `approved` en código ni docs — siempre `active`.
 > **Dev:** "¿Subir CSV gasta la cuota mensual?"
 > **Domain expert:** "No. La cuota se consume al pedir una Review sobre un Snapshot. Subir datos es barato; la Review usa tokens."
 
+> **Dev:** "¿Puedo pedir otra Review sobre el mismo Snapshot después de cambiar mi perfil?"
+> **Domain expert:** "No si ya hay una Review exitosa para ese Snapshot. Para una nueva Review necesitás un Snapshot nuevo (subir datos otra vez). Si la Review falló, podés reintentar sin gastar otra cuota."
+
 ## Flagged ambiguities
 
 - "Optimizar portafolio" en UI puede confundirse con subir datos; en dominio, optimizar = solicitar una **Review**.
 - v1 usaba la tabla `portfolios` para cada upload; en v2 eso pasa a ser **Snapshot**.
+- En v2 inicial solo se puede solicitar **Review** sobre el snapshot actual. Reviews retrospectivas sobre snapshots históricos quedan para una versión futura.
+
+## Future (no implementar aún)
+
+**Review validation** (nombre tentativo):
+Evaluar retrospectivamente una **Review** ya emitida comparando sus recomendaciones con la evolución real del mercado entre la fecha del **Snapshot** y la fecha presente. Ej.: review de un snapshot de enero revisada en junio con datos reales de los 5 meses intermedios. Requiere snapshots históricos persistidos, reviews con contexto congelado (`rules_snapshot`) y motor de comparación — distinto del flujo operativo de solicitar una review nueva.
 
 **User access status**:
 Estado de acceso a la aplicación: `pending` (espera aprobación), `active` (uso normal), `denied` (rechazado), `paused` (suspendido; lectura + settings).
