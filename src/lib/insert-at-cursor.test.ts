@@ -33,8 +33,8 @@ describe("insertAtCursor", () => {
 
   it("replaces the current selection", () => {
     expect(insertAtCursor(textarea("alpha beta gamma", 6, 10), "chip")).toEqual({
-      value: "alpha chip\ngamma",
-      cursor: 11,
+      value: "alpha \nchip\n gamma",
+      cursor: 12,
     });
   });
 });

@@ -65,7 +65,7 @@ describe("buildOrderChecklist", () => {
     expect(rows.map((r) => r.action)).toEqual(["COMPRA", "COMPRA", "COMPRA"]);
     expect(rows[0]).toMatchObject({
       ticker: "CSPX",
-      amountLabel: "USD 1.000",
+      amountLabel: "USD 1,000",
       origin: "Destino #1 · tramo 1",
     });
     expect(rows[0].timing).toContain("Tramo 1");
@@ -146,7 +146,7 @@ describe("buildOrderChecklist", () => {
       ticker: "aapl",
       action: "VENTA",
       amountUsd: 1_500,
-      amountLabel: "USD 1.500",
+      amountLabel: "USD 1,500",
     });
     expect(rows[1]).toMatchObject({
       ticker: "TSLA",

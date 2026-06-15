@@ -61,8 +61,7 @@ describe("liquid assets editing text", () => {
 
     expect(parseLiquidAssetsFromEditing("- Efectivo ocioso: $abc USD")).toEqual({
       ok: false,
-      error:
-        "No se encontraron categorías válidas. Usá el formato: - Efectivo ocioso: $0 USD",
+      error: 'Monto inválido en la línea: "- Efectivo ocioso: $abc USD"',
     });
 
     const tooLarge = parseLiquidAssetsFromEditing(

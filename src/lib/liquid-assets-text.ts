@@ -67,7 +67,7 @@ export function parseLiquidAssetsFromEditing(
   const lines = text.split(/\r?\n/);
 
   for (const line of lines) {
-    const match = line.match(/^-\s*(.+?):\s*\$?([\d,.\s]+)\s*(?:USD)?/i);
+    const match = line.match(/^-\s*(.+?):\s*\$?(.+?)\s*(?:USD)?\s*$/i);
     if (!match) continue;
 
     const label = match[1].trim();
