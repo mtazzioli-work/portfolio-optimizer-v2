@@ -1,21 +1,22 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  investmentProfiles,
   portfolioSnapshots,
   portfolios,
   positions,
   reviews,
+  REVIEW_PRESENTATION_VERSION,
   type Review,
   type User,
 } from "@/db/schema";
+import { estimateCostUsd } from "@/lib/anthropic-pricing";
 import { buildAnalysisPrompt } from "@/lib/analysis-prompt";
 import { runClaudeAnalysis } from "@/lib/claude-analysis";
+import type { InvestmentRules } from "@/lib/default-investment-profile";
 import {
-  DEFAULT_INVESTMENT_PROFILE,
-  type InvestmentRules,
-} from "@/lib/default-investment-profile";
-import { toInvestmentRules } from "@/lib/investment-profile-text";
+  INVESTMENT_PROFILE_REQUIRED_ERROR,
+} from "@/lib/investment-profile-messages";
+import { getStoredInvestmentProfile } from "@/lib/investment-profile";
 import { buildLiquidSummary, getLiquidAssetsForUser } from "@/lib/liquid-assets";
 import { analyzePortfolio } from "@/lib/market-data";
 import { getQuotaUsage } from "@/lib/quota";
@@ -23,6 +24,7 @@ import { canRequestReview } from "@/lib/access";
 
 export type ReviewRulesSnapshot = {
   investmentProfile: InvestmentRules;
+  profileEditorText: string;
   liquidSummary: ReturnType<typeof buildLiquidSummary>;
 };
 
@@ -74,17 +76,6 @@ export async function getFailedReviewForSnapshot(
   return row ?? null;
 }
 
-async function getInvestmentRules(userId: string): Promise<InvestmentRules> {
-  const [profile] = await db
-    .select()
-    .from(investmentProfiles)
-    .where(eq(investmentProfiles.userId, userId))
-    .limit(1);
-
-  if (!profile) return DEFAULT_INVESTMENT_PROFILE;
-  return toInvestmentRules(profile.rulesJson);
-}
-
 export async function requestReview(
   user: User,
   snapshotId: string,
@@ -128,6 +119,11 @@ export async function requestReview(
     }
   }
 
+  const storedProfile = await getStoredInvestmentProfile(user.clerkUserId);
+  if (!storedProfile.hasSavedText) {
+    return { error: INVESTMENT_PROFILE_REQUIRED_ERROR };
+  }
+
   let reviewId: string;
 
   if (failedReview) {
@@ -159,7 +155,7 @@ export async function requestReview(
       .from(positions)
       .where(eq(positions.snapshotId, snapshotId));
 
-    const investmentProfile = await getInvestmentRules(user.clerkUserId);
+    const investmentProfile = storedProfile.rules;
     const liquidRows = await getLiquidAssetsForUser(user.clerkUserId);
     const liquidSummary = buildLiquidSummary(liquidRows);
 
@@ -171,12 +167,17 @@ export async function requestReview(
       positionRows,
       symbolAnalyses,
       liquidSummary,
-      investmentProfile,
+      storedProfile.profileEditorText,
     );
-    const result = await runClaudeAnalysis(prompt);
+    const analysis = await runClaudeAnalysis(prompt);
+    const costUsd = estimateCostUsd(
+      analysis.inputTokens,
+      analysis.outputTokens,
+    );
 
     const rulesSnapshot: ReviewRulesSnapshot = {
       investmentProfile,
+      profileEditorText: storedProfile.profileEditorText,
       liquidSummary,
     };
 
@@ -185,8 +186,14 @@ export async function requestReview(
       .set({
         status: "done",
         claudeInvoked: true,
-        result,
+        presentationVersion: REVIEW_PRESENTATION_VERSION,
+        result: analysis.result,
         rulesSnapshot,
+        inputTokens: analysis.inputTokens,
+        outputTokens: analysis.outputTokens,
+        totalTokens: analysis.totalTokens,
+        modelId: analysis.modelId,
+        estimatedCostUsd: costUsd,
         errorMessage: null,
       })
       .where(eq(reviews.id, reviewId));
@@ -217,6 +224,42 @@ export async function getReviewForUser(
   return row ?? null;
 }
 
+export type ReviewDetailContext = {
+  review: Review;
+  snapshotCapturedAt: Date | null;
+  snapshotTotalValueUsd: number | null;
+  positions: (typeof positions.$inferSelect)[];
+};
+
+export async function getReviewDetailContext(
+  reviewId: string,
+  userId: string,
+): Promise<ReviewDetailContext | null> {
+  const review = await getReviewForUser(reviewId, userId);
+  if (!review) return null;
+
+  const [snapshot] = await db
+    .select({
+      capturedAt: portfolioSnapshots.capturedAt,
+      totalValueUsd: portfolioSnapshots.totalValueUsd,
+    })
+    .from(portfolioSnapshots)
+    .where(eq(portfolioSnapshots.id, review.snapshotId))
+    .limit(1);
+
+  const positionRows = await db
+    .select()
+    .from(positions)
+    .where(eq(positions.snapshotId, review.snapshotId));
+
+  return {
+    review,
+    snapshotCapturedAt: snapshot?.capturedAt ?? null,
+    snapshotTotalValueUsd: snapshot?.totalValueUsd ?? null,
+    positions: positionRows,
+  };
+}
+
 export type ReviewListItem = {
   id: string;
   status: string;
@@ -224,6 +267,9 @@ export type ReviewListItem = {
   snapshotId: string;
   capturedAt: Date | null;
   totalValueUsd: number | null;
+  totalTokens: number | null;
+  estimatedCostUsd: number | null;
+  presentationVersion: number;
 };
 
 export async function listReviewsForUser(userId: string): Promise<ReviewListItem[]> {
@@ -235,6 +281,9 @@ export async function listReviewsForUser(userId: string): Promise<ReviewListItem
       snapshotId: reviews.snapshotId,
       capturedAt: portfolioSnapshots.capturedAt,
       totalValueUsd: portfolioSnapshots.totalValueUsd,
+      totalTokens: reviews.totalTokens,
+      estimatedCostUsd: reviews.estimatedCostUsd,
+      presentationVersion: reviews.presentationVersion,
     })
     .from(reviews)
     .innerJoin(

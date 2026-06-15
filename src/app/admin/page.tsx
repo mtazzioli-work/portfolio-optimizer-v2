@@ -6,7 +6,12 @@ import {
   updateUserAccessStatus,
   updateUserMonthlyReviewLimitFromForm,
 } from "@/app/admin/actions";
-import { countClaudeReviewsThisMonth, getEffectiveLimit } from "@/lib/quota";
+import {
+  countClaudeReviewsThisMonth,
+  getEffectiveLimit,
+  getMonthlyTokenUsage,
+} from "@/lib/quota";
+import { formatNumber, formatUsd } from "@/lib/review-amounts";
 import { getMonthlyReviewLimitDefault } from "@/lib/settings";
 
 export default async function AdminPage({
@@ -27,7 +32,8 @@ export default async function AdminPage({
     displayed.map(async (u) => {
       const used = await countClaudeReviewsThisMonth(u.clerkUserId);
       const limit = await getEffectiveLimit(u);
-      return { user: u, used, limit };
+      const tokens = await getMonthlyTokenUsage(u.clerkUserId);
+      return { user: u, used, limit, tokens };
     }),
   );
 
@@ -81,11 +87,12 @@ export default async function AdminPage({
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Rol</th>
                 <th className="px-3 py-2">Reviews / límite</th>
+                <th className="px-3 py-2">Tokens / costo mes</th>
                 <th className="px-3 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ user: u, used, limit }) => (
+              {rows.map(({ user: u, used, limit, tokens }) => (
                 <tr
                   key={u.clerkUserId}
                   className="border-t border-zinc-100 dark:border-zinc-800"
@@ -95,6 +102,16 @@ export default async function AdminPage({
                   <td className="px-3 py-2">{u.role}</td>
                   <td className="px-3 py-2">
                     {used} / {limit}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {tokens.totalTokens > 0 ? (
+                      <>
+                        {formatNumber(tokens.totalTokens)} · ~
+                        {formatUsd(tokens.totalCostUsd, { decimals: 2 })}
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">

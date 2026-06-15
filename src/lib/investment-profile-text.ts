@@ -21,6 +21,16 @@ export function toInvestmentRules(stored: unknown): InvestmentRules {
   return rules;
 }
 
+export function hasSavedProfileEditorText(stored: unknown): boolean {
+  const profileEditorText = (stored as StoredInvestmentProfile | undefined)
+    ?.profileEditorText;
+  return typeof profileEditorText === "string" && profileEditorText.trim().length > 0;
+}
+
+export function profileDefinesOutputFormat(text: string): boolean {
+  return /B\.1\)|B\.2\)|RESULTADO ESPERADO|Resultado esperado/i.test(text);
+}
+
 export function serializeProfileForEditing(rules: InvestmentRules): string {
   const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
   const range = (min: number, max: number) => `${pct(min)}–${pct(max)}`;

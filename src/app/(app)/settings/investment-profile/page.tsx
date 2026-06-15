@@ -13,7 +13,8 @@ import {
   getTemplateById,
   type ProfileTemplateId,
 } from "@/lib/investment-profile-templates";
-import { parseProfileFromEditing, getProfileEditorText } from "@/lib/investment-profile-text";
+import { parseProfileFromEditing, getProfileEditorText, hasSavedProfileEditorText } from "@/lib/investment-profile-text";
+import { listActiveProfileChipSections } from "@/lib/profile-chips";
 import { canEditInvestmentProfile } from "@/lib/access";
 import { getOrCreateUser } from "@/lib/users";
 import { redirect } from "next/navigation";
@@ -129,7 +130,9 @@ export default async function InvestmentProfilePage() {
     (profile?.rulesJson as InvestmentRules | undefined) ??
     DEFAULT_INVESTMENT_PROFILE;
   const rules = storedRules;
+  const hasSavedText = hasSavedProfileEditorText(profile?.rulesJson);
   const editorText = getProfileEditorText(profile?.rulesJson, rules);
+  const chipSections = await listActiveProfileChipSections();
   const activeTemplateId = profile
     ? INVESTMENT_PROFILE_TEMPLATES.find((t) =>
         profile.label.includes(t.name),
@@ -137,11 +140,11 @@ export default async function InvestmentProfilePage() {
     : undefined;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <h1 className="text-2xl font-semibold">Perfil de inversión</h1>
       <p className="text-zinc-600 dark:text-zinc-400">
-        Elegí una plantilla como punto de partida. Podés personalizar los
-        detalles después de aplicarla.
+        Elegí una plantilla como punto de partida o armá tu perfil con los
+        fragmentos del panel. Guardalo antes de solicitar una review.
       </p>
 
       {profile && (
@@ -172,6 +175,7 @@ export default async function InvestmentProfilePage() {
               <ApplyTemplateForm
                 templateId={template.id}
                 isActive={activeTemplateId === template.id}
+                hasExistingText={editorText.trim().length > 0}
                 applyTemplate={applyTemplate}
               />
             ) : (
@@ -185,6 +189,8 @@ export default async function InvestmentProfilePage() {
         key={profile?.updatedAt?.toISOString() ?? "default"}
         initialText={editorText}
         canEdit={canEdit}
+        chipSections={chipSections}
+        hasSavedText={hasSavedText}
         saveProfile={saveProfile}
       />
     </div>

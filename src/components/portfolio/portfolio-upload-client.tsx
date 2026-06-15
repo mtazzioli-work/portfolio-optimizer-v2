@@ -24,6 +24,7 @@ type Props = {
     existingReviewId?: string;
   }>;
   hasUnsavedLiquidAssets?: boolean;
+  hasInvestmentProfile?: boolean;
 };
 
 function fileIsCsv(file: File): boolean {
@@ -39,6 +40,7 @@ export function PortfolioUploadClient({
   uploadSnapshotText,
   requestReview,
   hasUnsavedLiquidAssets = false,
+  hasInvestmentProfile = true,
 }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -256,6 +258,7 @@ export function PortfolioUploadClient({
             snapshotId={lastSnapshotId}
             requestReview={requestReview}
             hasUnsavedLiquidAssets={hasUnsavedLiquidAssets}
+            hasInvestmentProfile={hasInvestmentProfile}
           />
         </section>
       )}

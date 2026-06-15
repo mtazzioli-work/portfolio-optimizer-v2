@@ -12,7 +12,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Panel" },
   {
     href: "/portfolio/upload",
     label: "Subir snapshot",
@@ -43,6 +43,11 @@ const NAV_ITEMS: NavItem[] = [
     label: "Admin",
     show: ({ role }) => role === "admin",
   },
+  {
+    href: "/admin/profile-chips",
+    label: "Chips de perfil",
+    show: ({ role }) => role === "admin",
+  },
 ];
 
 export function NavSidebar({
@@ -66,7 +71,9 @@ export function NavSidebar({
           const active =
             item.href === "/"
               ? pathname === "/"
-              : pathname.startsWith(item.href);
+              : item.href === "/admin"
+                ? pathname === "/admin"
+                : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

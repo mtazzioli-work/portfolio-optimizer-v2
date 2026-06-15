@@ -29,6 +29,7 @@ type Props = {
     error?: string;
     existingReviewId?: string;
   }>;
+  hasInvestmentProfile: boolean;
 };
 
 export function PortfolioUploadWorkspace({
@@ -39,6 +40,7 @@ export function PortfolioUploadWorkspace({
   uploadSnapshotText,
   saveLiquidAssets,
   requestReview,
+  hasInvestmentProfile,
 }: Props) {
   const [hasUnsavedLiquidAssets, setHasUnsavedLiquidAssets] = useState(false);
 
@@ -49,6 +51,7 @@ export function PortfolioUploadWorkspace({
         uploadSnapshotText={uploadSnapshotText}
         requestReview={requestReview}
         hasUnsavedLiquidAssets={hasUnsavedLiquidAssets}
+        hasInvestmentProfile={hasInvestmentProfile}
       />
 
       <LiquidAssetsEditor

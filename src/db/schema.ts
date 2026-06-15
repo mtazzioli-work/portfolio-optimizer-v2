@@ -84,11 +84,20 @@ export const reviews = pgTable("reviews", {
     .references(() => users.clerkUserId, { onDelete: "cascade" }),
   claudeInvoked: boolean("claude_invoked").notNull().default(false),
   status: text("status").notNull().default("pending"), // pending | processing | done | error
+  presentationVersion: integer("presentation_version").notNull().default(1),
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  totalTokens: integer("total_tokens"),
+  modelId: text("model_id"),
+  estimatedCostUsd: real("estimated_cost_usd"),
   rulesSnapshot: jsonb("rules_snapshot"),
   result: jsonb("result"),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+/** Reviews con formato de presentación v2 (montos, bullets, español). */
+export const REVIEW_PRESENTATION_VERSION = 2;
 
 export const investmentProfiles = pgTable("investment_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -114,6 +123,27 @@ export const liquidAssets = pgTable("liquid_assets", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const profileChipSections = pgTable("profile_chip_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const profileChips = pgTable("profile_chips", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sectionId: uuid("section_id")
+    .notNull()
+    .references(() => profileChipSections.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  insertText: text("insert_text").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type AccessStatus = User["accessStatus"];
@@ -124,3 +154,5 @@ export type Position = typeof positions.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type InvestmentProfile = typeof investmentProfiles.$inferSelect;
 export type LiquidAsset = typeof liquidAssets.$inferSelect;
+export type ProfileChipSection = typeof profileChipSections.$inferSelect;
+export type ProfileChip = typeof profileChips.$inferSelect;

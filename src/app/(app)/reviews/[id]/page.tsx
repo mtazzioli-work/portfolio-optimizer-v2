@@ -7,7 +7,12 @@ import { ReviewView } from "@/components/reviews/review-view";
 import { requestReviewAction } from "@/app/(app)/reviews/actions";
 import { type AnalysisResult } from "@/lib/claude-analysis";
 import { canRequestReview } from "@/lib/access";
-import { getReviewForUser } from "@/lib/reviews";
+import { formatNumber, formatUsd } from "@/lib/review-amounts";
+import {
+  getReviewDetailContext,
+  type ReviewRulesSnapshot,
+} from "@/lib/reviews";
+import { userHasSavedInvestmentProfile } from "@/lib/investment-profile";
 import { getOrCreateUser } from "@/lib/users";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -26,8 +31,14 @@ export default async function ReviewDetailPage({
   const user = await getOrCreateUser();
   if (!user) return null;
 
-  const review = await getReviewForUser(id, user.clerkUserId);
-  if (!review) notFound();
+  const ctx = await getReviewDetailContext(id, user.clerkUserId);
+  if (!ctx) notFound();
+
+  const { review, snapshotCapturedAt, snapshotTotalValueUsd, positions } = ctx;
+  const rulesSnapshot = review.rulesSnapshot as ReviewRulesSnapshot | null;
+  const hasInvestmentProfile = await userHasSavedInvestmentProfile(
+    user.clerkUserId,
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -46,6 +57,16 @@ export default async function ReviewDetailPage({
             })}{" "}
             · {STATUS_LABELS[review.status] ?? review.status}
           </p>
+          {review.status === "done" && review.totalTokens != null && (
+            <p className="mt-1 text-sm text-zinc-500">
+              Costo del análisis: {formatNumber(review.totalTokens)} tokens (
+              {formatNumber(review.inputTokens ?? 0)} entrada ·{" "}
+              {formatNumber(review.outputTokens ?? 0)} salida)
+              {review.estimatedCostUsd != null && (
+                <> · ~{formatUsd(review.estimatedCostUsd, { decimals: 2 })}</>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -63,6 +84,7 @@ export default async function ReviewDetailPage({
             <RequestReviewButton
               snapshotId={review.snapshotId}
               requestReview={requestReviewAction}
+              hasInvestmentProfile={hasInvestmentProfile}
               label="Reintentar review"
             />
           )}
@@ -79,7 +101,15 @@ export default async function ReviewDetailPage({
       )}
 
       {review.status === "done" && review.result != null ? (
-        <ReviewView result={review.result as AnalysisResult} />
+        <ReviewView
+          result={review.result as AnalysisResult}
+          presentationVersion={review.presentationVersion}
+          liquidSummary={rulesSnapshot?.liquidSummary}
+          snapshotCapturedAt={snapshotCapturedAt}
+          snapshotTotalValueUsd={snapshotTotalValueUsd}
+          positions={positions}
+          reviewCreatedAt={review.createdAt}
+        />
       ) : null}
     </div>
   );

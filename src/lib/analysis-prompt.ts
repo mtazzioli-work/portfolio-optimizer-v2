@@ -1,8 +1,5 @@
 import { type Position } from "@/db/schema";
-import {
-  type InvestmentRules,
-  serializeProfileForPrompt,
-} from "@/lib/default-investment-profile";
+import { profileDefinesOutputFormat } from "@/lib/investment-profile-text";
 import { type SymbolAnalysis } from "@/lib/market-data";
 
 export type LiquidSummary = {
@@ -13,13 +10,40 @@ export type LiquidSummary = {
   liquidForInvesting: number;
 };
 
+function buildDefaultTaskSection(liquidForInvesting: number): string {
+  return `TAREA: Realizá la revisión mensual del portafolio. Usá análisis técnico (señales EMA, RSI) Y fundamental como insumos.
+
+Generá un análisis estructurado con las siguientes secciones. Todo el texto para el usuario en español latinoamericano.
+
+A) CANDIDATOS BAJISTAS: Tenencias con señales bajistas (tendencia bajista, cruce bajista, soporte roto o fundamentales deteriorándose) a considerar para liquidación. Por cada una: razón (técnica + fundamental) como bullets, nivel clave, disparador de salida, costo estimado de salida, alternativa de reemplazo.
+
+B1) DIAGNÓSTICO DE ASIGNACIÓN: Diagnosticá la asignación actual vs objetivos. Incluí:
+  - Tabla por clase de activo (actual % vs objetivo min-max, status: OK/UNDERWEIGHT/OVERWEIGHT) — categorías en español
+  - Tabla por región geográfica — regiones en español
+  - Tabla por sector — sectores en español
+  - summary como array de bullets accionables
+
+B2) LISTA VENDER / MANTENER / OBSERVAR: Por cada posición: action (SELL/HOLD/WATCH), razón técnica en bullets, nivel clave, disparador de salida (si aplica), costo estimado de salida.
+
+B3) TOP 5 DESTINOS DE INVERSIÓN: Los 5 mejores instrumentos para desplegar los $${liquidForInvesting.toFixed(0)} USD de efectivo disponible. Por cada uno: ticker, name, suggestedPct (deben sumar ~100%), role, riskLevel (1-5), liquidity, TER si se conoce, entryPlan estructurado (si DCA: tranches con pctOfAllocation que sumen 100 y timing en español), thesis en bullets.
+
+B4) DOS ESCENARIOS:
+  - "Invertir hoy": asignar el efectivo ahora según B3 — allocation con amountUsd numérico por ticker
+  - "Esperar": condiciones/niveles a observar antes de entrar, riesgo de esperar demasiado — allocation vacío o sin montos fijos
+
+Sé específico con niveles de precio y porcentajes. Referenciá las restricciones del inversor en todo el análisis.`;
+}
+
+function buildMinimalTaskSection(): string {
+  return `TAREA: Realizá la revisión mensual del portafolio según el formato y las instrucciones definidas en el PERFIL DE INVERSIÓN DEL USUARIO arriba. Usá análisis técnico (señales EMA, RSI) Y fundamental como insumos. Todo el texto para el usuario en español latinoamericano. Sé específico con niveles de precio y porcentajes. Referenciá las restricciones del inversor en todo el análisis.`;
+}
+
 export function buildAnalysisPrompt(
   positions: Position[],
   symbolAnalyses: SymbolAnalysis[],
   liquidSummary: LiquidSummary,
-  investmentRules: InvestmentRules,
+  profileEditorText: string,
 ): string {
-  const profileSection = serializeProfileForPrompt(investmentRules);
   const today = new Date().toISOString().slice(0, 10);
 
   const analysisMap = new Map(symbolAnalyses.map((a) => [a.symbol, a]));
@@ -39,23 +63,23 @@ export function buildAnalysisPrompt(
       const trendLabel = signal
         ? signal.trendUp
           ? signal.lastCross === 1
-            ? "BULLISH CROSS"
-            : "UPTREND"
+            ? "CRUCE ALCISTA"
+            : "TENDENCIA ALCISTA"
           : signal.lastCross === -1
-            ? "BEARISH CROSS"
-            : "DOWNTREND"
+            ? "CRUCE BAJISTA"
+            : "TENDENCIA BAJISTA"
         : "N/A";
 
       return [
-        `Symbol: ${p.symbol}`,
-        `  ISIN: ${p.isin ?? "N/A"} | Currency: ${p.currency ?? "N/A"} | Category: ${p.assetCategory ?? "N/A"}/${p.subCategory ?? "N/A"} | Country: ${p.issuerCountryCode ?? "N/A"}`,
-        `  Position: ${p.position?.toFixed(4) ?? "N/A"} units | Mark price: ${p.markPrice?.toFixed(2) ?? "N/A"} | Market value: ${p.positionValue?.toFixed(2) ?? "N/A"} ${p.currency ?? ""}`,
-        `  Cost basis: ${p.costBasisPrice?.toFixed(4) ?? "N/A"} | P&L: ${pnlPct}%`,
+        `Símbolo: ${p.symbol}`,
+        `  ISIN: ${p.isin ?? "N/A"} | Moneda: ${p.currency ?? "N/A"} | Categoría: ${p.assetCategory ?? "N/A"}/${p.subCategory ?? "N/A"} | País: ${p.issuerCountryCode ?? "N/A"}`,
+        `  Posición: ${p.position?.toFixed(4) ?? "N/A"} unidades | Precio: ${p.markPrice?.toFixed(2) ?? "N/A"} | Valor de mercado: ${p.positionValue?.toFixed(2) ?? "N/A"} ${p.currency ?? ""}`,
+        `  Costo base: ${p.costBasisPrice?.toFixed(4) ?? "N/A"} | P&L: ${pnlPct}%`,
         signal
-          ? `  Technical (monthly): ${trendLabel} | EMA6=${signal.ema6.toFixed(2)} EMA10=${signal.ema10.toFixed(2)} | RSI14=${signal.rsi14.toFixed(1)} | Last close: ${signal.closeAdj.toFixed(2)} (${signal.lastMonthEnd})`
-          : "  Technical: no data",
+          ? `  Técnico (mensual): ${trendLabel} | EMA6=${signal.ema6.toFixed(2)} EMA10=${signal.ema10.toFixed(2)} | RSI14=${signal.rsi14.toFixed(1)} | Último cierre: ${signal.closeAdj.toFixed(2)} (${signal.lastMonthEnd})`
+          : "  Técnico: sin datos",
         fund && (fund.sector || fund.pe)
-          ? `  Fundamental: Sector=${fund.sector ?? "N/A"} | Industry=${fund.industry ?? "N/A"} | P/E=${fund.pe?.toFixed(1) ?? "N/A"} | Fwd P/E=${fund.forwardPe?.toFixed(1) ?? "N/A"} | Rev growth=${fund.revenueGrowth != null ? (fund.revenueGrowth * 100).toFixed(1) + "%" : "N/A"} | Margins=${fund.profitMargins != null ? (fund.profitMargins * 100).toFixed(1) + "%" : "N/A"}`
+          ? `  Fundamental: Sector=${fund.sector ?? "N/A"} | Industria=${fund.industry ?? "N/A"} | P/E=${fund.pe?.toFixed(1) ?? "N/A"} | Fwd P/E=${fund.forwardPe?.toFixed(1) ?? "N/A"} | Crec. ingresos=${fund.revenueGrowth != null ? (fund.revenueGrowth * 100).toFixed(1) + "%" : "N/A"} | Márgenes=${fund.profitMargins != null ? (fund.profitMargins * 100).toFixed(1) + "%" : "N/A"}`
           : "",
       ]
         .filter(Boolean)
@@ -70,47 +94,33 @@ export function buildAnalysisPrompt(
     liquidSummary.crypto +
     liquidSummary.realEstate;
 
+  const taskSection = profileDefinesOutputFormat(profileEditorText)
+    ? buildMinimalTaskSection()
+    : buildDefaultTaskSection(liquidSummary.liquidForInvesting);
+
   return `
-Today's date: ${today}
-Analysis type: Monthly portfolio review (first business day of the month)
+Fecha de hoy: ${today}
+Tipo de análisis: Revisión mensual de portafolio (primer día hábil del mes)
 
-${profileSection}
+PERFIL DE INVERSIÓN DEL USUARIO:
+${profileEditorText.trim()}
 
 ---
-CURRENT PORTFOLIO SUMMARY:
-- Invested in stocks/ETFs (IB): ~$${totalInvested.toFixed(0)} USD
-- Liquid for investing (broker cash): ~$${liquidSummary.liquidForInvesting.toFixed(0)} USD
-- Cash (idle): ~$${liquidSummary.cashUsd.toFixed(0)} USD
+RESUMEN DEL PORTAFOLIO ACTUAL:
+- Invertido en acciones/ETFs (IB): ~$${totalInvested.toFixed(0)} USD
+- Efectivo disponible para invertir: ~$${liquidSummary.liquidForInvesting.toFixed(0)} USD
+- Efectivo ocioso: ~$${liquidSummary.cashUsd.toFixed(0)} USD
 - Stablecoins: ~$${liquidSummary.stablecoins.toFixed(0)} USD
-- Crypto (off-exchange): ~$${liquidSummary.crypto.toFixed(0)} USD
-- Real estate / other illiquid: ~$${liquidSummary.realEstate.toFixed(0)} USD
-- TOTAL PORTFOLIO: ~$${totalPortfolio.toFixed(0)} USD
+- Crypto (fuera del broker): ~$${liquidSummary.crypto.toFixed(0)} USD
+- Inmuebles / otros ilíquidos: ~$${liquidSummary.realEstate.toFixed(0)} USD
+- PORTAFOLIO TOTAL: ~$${totalPortfolio.toFixed(0)} USD
 
 ---
-CURRENT POSITIONS (${positions.filter((p) => (p.positionValue ?? 0) > 0).length} holdings):
+POSICIONES ACTUALES (${positions.filter((p) => (p.positionValue ?? 0) > 0).length} tenencias):
 
 ${positionRows.join("\n\n")}
 
 ---
-TASK: Perform the monthly portfolio review. Use BOTH technical analysis (EMA signals, RSI) AND fundamental analysis as inputs.
-
-Please generate a structured analysis with the following sections:
-
-A) BEARISH CANDIDATES: List any holdings showing bearish signals (downtrend, bearish cross, broken support, or deteriorating fundamentals) that should be considered for liquidation. For each: provide reason (technical + fundamental), key level, exit trigger, estimated exit cost, and a replacement alternative.
-
-B1) ALLOCATION DIAGNOSIS: Diagnose current allocation vs targets. Provide:
-  - Table by asset class (current % vs target min-max, status: OK/UNDERWEIGHT/OVERWEIGHT)
-  - Table by geographic region
-  - Table by sector
-
-B2) SELL / HOLD / WATCH LIST: For each position provide: action (SELL/HOLD/WATCH), technical reason, key level, exit trigger (if any), estimated cost to exit.
-
-B3) TOP 5 INVESTMENT DESTINATIONS: Best 5 instruments to deploy the $${liquidSummary.liquidForInvesting.toFixed(0)} available cash. For each: ticker, name, suggested % allocation, role (growth/defensive/hedge), risk level (1-5), liquidity (high/medium/low), TER/fee if known, entry plan (DCA vs limit), and investment thesis (technical + fundamental).
-
-B4) TWO SCENARIOS:
-  - "Invest today": allocate the cash now per B3 recommendations
-  - "Wait": conditions/levels to watch before entering, risk of waiting too long
-
-Be specific with price levels and percentages. Reference the investor's constraints throughout.
+${taskSection}
 `.trim();
 }

@@ -5,6 +5,8 @@ import { RequestReviewButton } from "@/components/reviews/request-review-button"
 import { requestReviewAction } from "@/app/(app)/reviews/actions";
 import { canRequestReview } from "@/lib/access";
 import { getQuotaUsage } from "@/lib/quota";
+import { userHasSavedInvestmentProfile } from "@/lib/investment-profile";
+import { formatNumber, formatUsd } from "@/lib/review-amounts";
 import {
   getCurrentSnapshotReviewState,
   listReviewsForUser,
@@ -27,6 +29,9 @@ export default async function ReviewsPage() {
   const quota = canRequestReview(user.accessStatus)
     ? await getQuotaUsage(user)
     : null;
+  const hasInvestmentProfile = await userHasSavedInvestmentProfile(
+    user.clerkUserId,
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -42,8 +47,15 @@ export default async function ReviewsPage() {
         <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <p className="text-sm text-zinc-500">Cuota este mes</p>
           <p className="mt-1 text-lg font-medium">
-            {quota.used} / {quota.limit} usadas · {quota.remaining} restantes
+            {quota.used} / {quota.limit} reviews usadas · {quota.remaining}{" "}
+            restantes
           </p>
+          {quota.totalTokens > 0 && (
+            <p className="mt-1 text-sm text-zinc-500">
+              {formatNumber(quota.totalTokens)} tokens · ~
+              {formatUsd(quota.totalCostUsd, { decimals: 2 })} este mes
+            </p>
+          )}
         </section>
       )}
 
@@ -84,6 +96,7 @@ export default async function ReviewsPage() {
                 <RequestReviewButton
                   snapshotId={snapshotState.currentSnapshotId}
                   requestReview={requestReviewAction}
+                  hasInvestmentProfile={hasInvestmentProfile}
                   label={
                     snapshotState.failedReview
                       ? "Reintentar review"
@@ -119,8 +132,17 @@ export default async function ReviewsPage() {
                     </p>
                     <p className="text-sm text-zinc-500">
                       {r.totalValueUsd != null
-                        ? `Valor snapshot: $${r.totalValueUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+                        ? `Valor snapshot: ${formatUsd(r.totalValueUsd)}`
                         : "Snapshot"}
+                      {r.totalTokens != null && r.totalTokens > 0 && (
+                        <>
+                          {" "}
+                          · {formatNumber(r.totalTokens)} tokens
+                          {r.estimatedCostUsd != null && (
+                            <> · ~{formatUsd(r.estimatedCostUsd, { decimals: 2 })}</>
+                          )}
+                        </>
+                      )}
                     </p>
                   </div>
                   <span className="text-sm text-zinc-500">

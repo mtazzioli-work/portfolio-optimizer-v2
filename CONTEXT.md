@@ -22,8 +22,27 @@ Una línea de tenencia dentro de un snapshot (símbolo, cantidad, valor, etc.).
 **Liquid assets**:
 Activos fuera del broker que el usuario declara manualmente para contexto de asignación (efectivo, crypto, inmueble, etc.).
 
+**Efectivo disponible para invertir**:
+El subconjunto de **Liquid assets** categorizado como `liquid_for_investing`; es el capital que la **Review** asigna a destinos y tramos DCA. Congelado en `rules_snapshot` al solicitar la review.
+_Avoid_: efectivo (solo), cash, liquidez
+
+**Plan de entrada**:
+Cómo ejecutar la compra de un destino (DCA, límite, mercado); incluye tramos con % y timing cuando aplica.
+_Avoid_: entry plan (en UI)
+
+**Checklist de órdenes**:
+Vista consolidada al final de una **Review** con compras y ventas sugeridas, montos en USD y timing — derivada del resultado + **Positions** del **Snapshot**, sin segunda llamada a IA.
+_Avoid_: lista de trades, órdenes sugeridas (ambiguos)
+
 **Investment profile**:
-Las reglas y objetivos de inversión del usuario que condicionan una review.
+Las reglas y objetivos de inversión del usuario que condicionan una **Review**. El texto guardado del perfil (`profileEditorText`) es la fuente principal enviada a la IA; las reglas estructuradas complementan plantillas de riesgo y el parser interno.
+
+**Profile chip**:
+Fragmento estándar del catálogo global que el inversor inserta en su **Investment profile** para redactarlo. No forma parte del contexto congelado de una **Review** salvo como parte del texto guardado del perfil.
+_Avoid_: template de usuario, preset personal
+
+**Profile chip catalog**:
+Conjunto de secciones y chips administrado por rol `admin`; igual para todos los usuarios.
 
 **User**:
 Persona autenticada con email/contraseña (Clerk). Estados de acceso (`access_status`):
@@ -60,6 +79,7 @@ No usar `approved` en código ni docs — siempre `active`.
 
 ## Flagged ambiguities
 
+- "Efectivo" en UI genérico vs **Efectivo disponible para invertir** — resuelto: los montos accionables de una **Review** usan solo `liquid_for_investing` del `rules_snapshot`, no el efectivo ocioso ni proceeds de ventas.
 - "Optimizar portafolio" en UI puede confundirse con subir datos; en dominio, optimizar = solicitar una **Review**.
 - v1 usaba la tabla `portfolios` para cada upload; en v2 eso pasa a ser **Snapshot**.
 - En v2 inicial solo se puede solicitar **Review** sobre el snapshot actual. Reviews retrospectivas sobre snapshots históricos quedan para una versión futura.

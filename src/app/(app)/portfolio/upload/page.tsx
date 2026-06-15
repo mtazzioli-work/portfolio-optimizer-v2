@@ -15,6 +15,7 @@ import {
 } from "@/lib/liquid-assets";
 import { saveSnapshot } from "@/lib/snapshots";
 import { getOrCreateUser } from "@/lib/users";
+import { userHasSavedInvestmentProfile } from "@/lib/investment-profile";
 import {
   assertPositionCount,
   validateCsvFile,
@@ -122,6 +123,9 @@ export default async function PortfolioUploadPage() {
   const rows = await getLiquidAssetsForUser(user.clerkUserId);
   const editorText = getLiquidAssetsEditorText(rows);
   const canEdit = canEditLiquidAssets(user.accessStatus);
+  const hasInvestmentProfile = await userHasSavedInvestmentProfile(
+    user.clerkUserId,
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -144,6 +148,7 @@ export default async function PortfolioUploadPage() {
         uploadSnapshotText={uploadSnapshotText}
         saveLiquidAssets={saveLiquidAssets}
         requestReview={requestReviewAction}
+        hasInvestmentProfile={hasInvestmentProfile}
       />
     </div>
   );
