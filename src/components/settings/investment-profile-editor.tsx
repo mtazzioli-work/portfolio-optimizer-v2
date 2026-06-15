@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ProfileChipDrawer,
@@ -42,13 +42,28 @@ export function InvestmentProfileEditor({
   hasSavedText,
   saveProfile,
 }: Props) {
+  return (
+    <InvestmentProfileEditorForm
+      key={initialText}
+      initialText={initialText}
+      canEdit={canEdit}
+      chipSections={chipSections}
+      hasSavedText={hasSavedText}
+      saveProfile={saveProfile}
+    />
+  );
+}
+
+function InvestmentProfileEditorForm({
+  initialText,
+  canEdit,
+  chipSections,
+  hasSavedText,
+  saveProfile,
+}: Props) {
   const [text, setText] = useState(initialText);
   const [state, formAction] = useActionState(saveProfile, null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    setText(initialText);
-  }, [initialText]);
 
   const handleInsert = (value: string, cursor: number) => {
     setText(value);

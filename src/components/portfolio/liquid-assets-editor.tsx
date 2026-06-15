@@ -35,12 +35,25 @@ export function LiquidAssetsEditor({
   saveLiquidAssets,
   onDirtyChange,
 }: Props) {
+  return (
+    <LiquidAssetsEditorForm
+      key={initialText}
+      initialText={initialText}
+      canEdit={canEdit}
+      saveLiquidAssets={saveLiquidAssets}
+      onDirtyChange={onDirtyChange}
+    />
+  );
+}
+
+function LiquidAssetsEditorForm({
+  initialText,
+  canEdit,
+  saveLiquidAssets,
+  onDirtyChange,
+}: Props) {
   const [text, setText] = useState(initialText);
   const [state, formAction] = useActionState(saveLiquidAssets, null);
-
-  useEffect(() => {
-    setText(initialText);
-  }, [initialText]);
 
   useEffect(() => {
     onDirtyChange?.(text !== initialText);

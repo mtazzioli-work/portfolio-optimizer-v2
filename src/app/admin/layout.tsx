@@ -1,5 +1,4 @@
 import { UserButton } from "@clerk/nextjs";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminSubnav } from "@/components/admin/admin-subnav";
 import { NavSidebar } from "@/components/nav-sidebar";
