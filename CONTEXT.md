@@ -45,7 +45,7 @@ _Avoid_: template de usuario, preset personal
 Conjunto de secciones y chips administrado por rol `admin`; igual para todos los usuarios.
 
 **User**:
-Persona autenticada con email/contraseña (Clerk). Estados de acceso (`access_status`):
+Persona autenticada con email y contraseña propios del sistema (sin proveedor externo). Identificador interno: UUID. El email se normaliza (`lowercase` + `trim`) para login y unicidad. Estados de acceso (`access_status`):
 
 | Estado | Significado |
 |--------|-------------|
@@ -77,9 +77,18 @@ No usar `approved` en código ni docs — siempre `active`.
 > **Dev:** "¿Puedo pedir otra Review sobre el mismo Snapshot después de cambiar mi perfil?"
 > **Domain expert:** "No si ya hay una Review exitosa para ese Snapshot. Para una nueva Review necesitás un Snapshot nuevo (subir datos otra vez). Si la Review falló, podés reintentar sin gastar otra cuota."
 
+## Authentication (domain rules)
+
+- Registro abierto: nuevo **User** → `pending`; admin aprueba → `active`
+- Primer registro con email = `BOOTSTRAP_ADMIN_EMAIL` → `admin` + `active` automáticamente
+- **User** con cualquier `access_status` puede iniciar sesión; la app redirige según estado (`pending`→waiting, `denied`→denied, `paused`→solo lectura)
+- Recuperación de contraseña en v1: solo admin (genera contraseña temporal y la envía por email)
+- El **User** activo puede cambiar su contraseña en settings; invalida sesiones previas
+
 ## Flagged ambiguities
 
 - "Efectivo" en UI genérico vs **Efectivo disponible para invertir** — resuelto: los montos accionables de una **Review** usan solo `liquid_for_investing` del `rules_snapshot`, no el efectivo ocioso ni proceeds de ventas.
+- **User** autenticado vía Clerk — resuelto: auth propia email/contraseña; ver ADR-0001.
 - "Optimizar portafolio" en UI puede confundirse con subir datos; en dominio, optimizar = solicitar una **Review**.
 - v1 usaba la tabla `portfolios` para cada upload; en v2 eso pasa a ser **Snapshot**.
 - En v2 inicial solo se puede solicitar **Review** sobre el snapshot actual. Reviews retrospectivas sobre snapshots históricos quedan para una versión futura.
