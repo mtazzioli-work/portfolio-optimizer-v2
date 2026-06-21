@@ -1,14 +1,61 @@
 import { eq } from "drizzle-orm";
-import { Resend } from "resend";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { escapeHtml } from "@/lib/html-escape";
 
-type ResendSendResult = Awaited<ReturnType<Resend["emails"]["send"]>>;
+const BREVO_EMAIL_URL = "https://api.brevo.com/v3/smtp/email";
+const DEFAULT_FROM =
+  "Portfolio Optimizer <marcelo.h.tazzioli@gmail.com>";
 
-function assertResendOk(result: ResendSendResult): void {
-  if (result.error) {
-    throw new Error(result.error.message);
+function isBrevoConfigured(): boolean {
+  return Boolean(process.env.BREVO_API_KEY?.trim());
+}
+
+function getFromAddress(): string {
+  return process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
+}
+
+function parseSender(from: string): { name?: string; email: string } {
+  const match = from.match(/^(.+?)\s*<([^>]+)>$/);
+  if (match) {
+    return { name: match[1].trim(), email: match[2].trim() };
+  }
+  return { email: from };
+}
+
+async function sendEmail(params: {
+  to: string | string[];
+  subject: string;
+  html: string;
+}): Promise<void> {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("BREVO_API_KEY no configurada");
+  }
+
+  const from = getFromAddress();
+  const recipients = (Array.isArray(params.to) ? params.to : [params.to]).map(
+    (email) => ({ email }),
+  );
+
+  const response = await fetch(BREVO_EMAIL_URL, {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: parseSender(from),
+      to: recipients,
+      subject: params.subject,
+      htmlContent: params.html,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Brevo API error ${response.status}: ${body}`);
   }
 }
 
@@ -16,8 +63,7 @@ export async function notifyAdminsNewUser(params: {
   email: string;
   userId: string;
 }): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
+  if (!isBrevoConfigured()) return;
 
   const admins = await db
     .select({ email: users.email })
@@ -27,15 +73,11 @@ export async function notifyAdminsNewUser(params: {
   const adminEmails = admins.map((a) => a.email).filter(Boolean);
   if (adminEmails.length === 0) return;
 
-  const from =
-    process.env.RESEND_FROM_EMAIL ?? "Portfolio Optimizer <onboarding@resend.dev>";
-
-  const resend = new Resend(apiKey);
-  const result = await resend.emails.send({
-    from,
-    to: adminEmails,
-    subject: "Nuevo usuario pendiente de aprobación",
-    html: `
+  try {
+    await sendEmail({
+      to: adminEmails,
+      subject: "Nuevo usuario pendiente de aprobación",
+      html: `
       <p>Un nuevo usuario se registró y está <strong>pendiente</strong> de aprobación.</p>
       <ul>
         <li>Email: ${escapeHtml(params.email)}</li>
@@ -43,9 +85,10 @@ export async function notifyAdminsNewUser(params: {
       </ul>
       <p>Ingresá a la pantalla de administración para aprobar o rechazar el acceso.</p>
     `,
-  });
-  if (result.error) {
-    console.error("[email] Failed to notify admins:", result.error.message);
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[email] Failed to notify admins:", message);
   }
 }
 
@@ -53,17 +96,11 @@ export async function sendTemporaryPasswordEmail(params: {
   email: string;
   password: string;
 }): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error("RESEND_API_KEY no configurada");
+  if (!isBrevoConfigured()) {
+    throw new Error("BREVO_API_KEY no configurada");
   }
 
-  const from =
-    process.env.RESEND_FROM_EMAIL ?? "Portfolio Optimizer <onboarding@resend.dev>";
-
-  const resend = new Resend(apiKey);
-  const result = await resend.emails.send({
-    from,
+  await sendEmail({
     to: params.email,
     subject: "Tu nueva contraseña temporal — Portfolio Optimizer",
     html: `
@@ -72,24 +109,17 @@ export async function sendTemporaryPasswordEmail(params: {
       <p>Iniciá sesión y cambiá tu contraseña en Configuración lo antes posible.</p>
     `,
   });
-  assertResendOk(result);
 }
 
 export async function sendPasswordResetEmail(params: {
   email: string;
   resetUrl: string;
 }): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error("RESEND_API_KEY no configurada");
+  if (!isBrevoConfigured()) {
+    throw new Error("BREVO_API_KEY no configurada");
   }
 
-  const from =
-    process.env.RESEND_FROM_EMAIL ?? "Portfolio Optimizer <onboarding@resend.dev>";
-
-  const resend = new Resend(apiKey);
-  const result = await resend.emails.send({
-    from,
+  await sendEmail({
     to: params.email,
     subject: "Restablecer contraseña — Portfolio Optimizer",
     html: `
@@ -98,5 +128,4 @@ export async function sendPasswordResetEmail(params: {
       <p>Este enlace expira en 1 hora. Si no solicitaste este cambio, podés ignorar este email.</p>
     `,
   });
-  assertResendOk(result);
 }

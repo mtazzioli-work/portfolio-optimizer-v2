@@ -1,6 +1,7 @@
 const PRODUCTION_REQUIRED_SECRETS = [
   "AUTH_SECRET",
   "BOOTSTRAP_ADMIN_EMAIL",
+  "BREVO_API_KEY",
 ] as const;
 
 let productionSecretsWarningLogged = false;

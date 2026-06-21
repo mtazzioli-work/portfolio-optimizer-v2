@@ -237,10 +237,21 @@ export async function requestPasswordReset(
     } catch (err) {
       console.error("[auth] Failed to send password reset email", err);
       const message = err instanceof Error ? err.message : "";
-      if (message.toLowerCase().includes("api key")) {
+      const lower = message.toLowerCase();
+      if (
+        lower.includes("brevo api error 401") ||
+        lower.includes("unauthorized") ||
+        lower.includes("brevo_api_key")
+      ) {
         return {
           error:
-            "RESEND_API_KEY inválida. Creá una en resend.com/api-keys (formato re_...) y reiniciá el servidor.",
+            "BREVO_API_KEY inválida. Generá una en Brevo → SMTP & API → API keys, actualizá .env.local y reiniciá el servidor.",
+        };
+      }
+      if (lower.includes("brevo")) {
+        return {
+          error:
+            "Error al enviar email vía Brevo. Verificá BREVO_API_KEY y EMAIL_FROM en .env.local y reiniciá el servidor.",
         };
       }
       return {
