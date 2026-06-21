@@ -99,7 +99,7 @@ No usar `approved` en código ni docs — siempre `active`.
 ## Flagged ambiguities
 
 - "Efectivo" en UI genérico vs **Efectivo disponible para invertir** — resuelto: los montos accionables de una **Review** usan solo `liquid_for_investing` del `rules_snapshot`, no el efectivo ocioso ni proceeds de ventas.
-- **User** autenticado vía Clerk — resuelto: auth propia email/contraseña; ver ADR-0001.
+- **User** autenticado con auth propia email/contraseña — ver ADR-0001.
 - "Optimizar portafolio" en UI puede confundirse con subir datos; en dominio, optimizar = solicitar una **Review**.
 - v1 usaba la tabla `portfolios` para cada upload; en v2 eso pasa a ser **Snapshot**.
 - En v2 inicial solo se puede solicitar **Review** sobre el snapshot actual. Reviews retrospectivas sobre snapshots históricos quedan para una versión futura.
