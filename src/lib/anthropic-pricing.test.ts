@@ -20,4 +20,11 @@ describe("estimateCostUsd", () => {
     expect(estimateCostUsd(1_000_000, 0)).toBe(10);
     expect(estimateCostUsd(0, 1_000_000)).toBe(20);
   });
+
+  it("falls back when custom env pricing is invalid", () => {
+    process.env.ANTHROPIC_INPUT_PRICE_PER_M = "-1";
+    process.env.ANTHROPIC_OUTPUT_PRICE_PER_M = "not-a-number";
+
+    expect(estimateCostUsd(1_000_000, 1_000_000)).toBe(18);
+  });
 });

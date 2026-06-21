@@ -141,4 +141,81 @@ BND,1,--,-,Total Bonds`;
       costBasisPrice: 90,
     });
   });
+
+  it("supports additional quantity aliases", () => {
+    const csv = `Ticker,Shares,Price
+VTI,3,100`;
+
+    const rows = parseCSV(csv);
+
+    expect(rows[0]).toMatchObject({
+      symbol: "VTI",
+      position: 3,
+      markPrice: 100,
+      positionValue: 300,
+    });
+  });
+
+  it("pads sparse rows and leaves invalid numeric cells undefined", () => {
+    const csv = `Symbol,Quantity,Mark Price,Position Value,Currency
+AAPL,2
+MSFT,abc,100,,USD`;
+
+    const rows = parseCSV(csv);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      symbol: "AAPL",
+      position: 2,
+      markPrice: undefined,
+      positionValue: undefined,
+      currency: "",
+    });
+    expect(rows[1]).toMatchObject({
+      symbol: "MSFT",
+      position: undefined,
+      markPrice: 100,
+      currency: "USD",
+    });
+  });
+
+  it("handles IB reports when financial instrument metadata is incomplete", () => {
+    const ibCsv = `"Financial Instrument","Header","Description","Security ID"
+"Ignored","Data"
+"Financial Instrument","Data","Apple","US0378331005"
+"Open Positions","Header","Symbol","Quantity","Mark Price","Position Value"
+"Open Positions","Data","AAPL","1","100","100"`;
+
+    const rows = parseCSV(ibCsv);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      symbol: "AAPL",
+      isin: undefined,
+    });
+  });
+
+  it("ignores financial instrument sections without data rows", () => {
+    const ibCsv = `"Financial Instrument","Header","Symbol","Security ID"
+"Open Positions","Header","Symbol","Quantity","Mark Price","Position Value"
+"Open Positions","Data","AAPL","1","100","100"`;
+
+    const rows = parseCSV(ibCsv);
+
+    expect(rows[0]).toMatchObject({
+      symbol: "AAPL",
+      isin: undefined,
+    });
+  });
+
+  it("continues past valid IB sections that have no data rows", () => {
+    const ibCsv = `"Open Positions","Header","Symbol","Quantity","Mark Price","Position Value"
+"Holdings","Header","Symbol","Quantity","Mark Price","Position Value"
+"Holdings","Data","AAPL","1","100","100"`;
+
+    const rows = parseCSV(ibCsv);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].symbol).toBe("AAPL");
+  });
 });

@@ -71,10 +71,9 @@ describe("investment-profile-text", () => {
   });
 
   it("falls back to base percentages when edited percentages are invalid", () => {
-    const edited = serialized.replace(
-      "Drawdown máximo del portfolio: 10%",
-      "Drawdown máximo del portfolio: abc",
-    );
+    const edited = serialized
+      .replace("Drawdown máximo del portfolio: 10%", "Drawdown máximo del portfolio: abc")
+      .replace("Pérdida máxima por posición: 30%", "Pérdida máxima por posición: xyz");
 
     const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
 
@@ -82,6 +81,27 @@ describe("investment-profile-text", () => {
     if (parsed.ok) {
       expect(parsed.rules.maxPortfolioDrawdown).toBe(
         DEFAULT_INVESTMENT_PROFILE.maxPortfolioDrawdown,
+      );
+      expect(parsed.rules.maxPositionLoss).toBe(
+        DEFAULT_INVESTMENT_PROFILE.maxPositionLoss,
+      );
+    }
+  });
+
+  it("falls back to base values for incomplete or invalid allocation ranges", () => {
+    const edited = serialized
+      .replace("- Equity / ETFs: 50%–65%", "- Equity / ETFs: 50%")
+      .replace("- Bonos IG / T-bills: 15%–20%", "- Bonos IG / T-bills: abc–20%");
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.targetAllocation.equityEtf).toEqual(
+        DEFAULT_INVESTMENT_PROFILE.targetAllocation.equityEtf,
+      );
+      expect(parsed.rules.targetAllocation.bondsIG).toEqual(
+        DEFAULT_INVESTMENT_PROFILE.targetAllocation.bondsIG,
       );
     }
   });
@@ -172,6 +192,27 @@ describe("investment-profile-text", () => {
       expect(parsed.rules.technicalRules).toEqual(
         DEFAULT_INVESTMENT_PROFILE.technicalRules,
       );
+    }
+  });
+
+  it("defaults missing labels, notes, and lists from the base profile", () => {
+    const parsed = parseProfileFromEditing(
+      "Horizonte: 10 años\nDrawdown máximo del portfolio: \nNOTAS ADICIONALES:",
+      DEFAULT_INVESTMENT_PROFILE,
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.riskProfile).toBe(DEFAULT_INVESTMENT_PROFILE.riskProfile);
+      expect(parsed.rules.objective).toBe(DEFAULT_INVESTMENT_PROFILE.objective);
+      expect(parsed.rules.horizon).toBe("10 años");
+      expect(parsed.rules.maxPortfolioDrawdown).toBe(
+        DEFAULT_INVESTMENT_PROFILE.maxPortfolioDrawdown,
+      );
+      expect(parsed.rules.allowedInstruments).toEqual(
+        DEFAULT_INVESTMENT_PROFILE.allowedInstruments,
+      );
+      expect(parsed.rules.notes).toBe("");
     }
   });
 

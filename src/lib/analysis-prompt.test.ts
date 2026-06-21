@@ -231,4 +231,74 @@ describe("analysis-prompt", () => {
 
     expect(prompt).toContain("TENDENCIA BAJISTA");
   });
+
+  it("uses fallback labels when position and analysis fields are missing", () => {
+    const prompt = buildAnalysisPrompt(
+      [
+        {
+          id: "p1",
+          snapshotId: "s1",
+          positionValue: 25,
+        } as never,
+        {
+          id: "p2",
+          snapshotId: "s1",
+          symbol: "PEONLY",
+          position: 2,
+          markPrice: 10,
+          positionValue: 20,
+          costBasisPrice: 5,
+        } as never,
+        {
+          id: "p3",
+          snapshotId: "s1",
+          symbol: "CASH.CNT",
+          positionValue: 100,
+        } as never,
+        {
+          id: "p4",
+          snapshotId: "s1",
+          symbol: "ZERO",
+          positionValue: 0,
+        } as never,
+      ],
+      [
+        {
+          symbol: "PEONLY",
+          providerSymbol: "PEONLY",
+          signal: {
+            ema6: 10,
+            ema10: 11,
+            rsi14: 45,
+            trendUp: false,
+            lastCross: 0,
+            closeAdj: 10,
+            lastMonthEnd: "2026-01-31",
+          },
+          fundamentals: {
+            pe: 12,
+          },
+        } as never,
+      ],
+      {
+        cashUsd: 1,
+        stablecoins: 2,
+        crypto: 3,
+        realEstate: 4,
+        liquidForInvesting: 5,
+      },
+      "perfil",
+    );
+
+    expect(prompt).toContain("Símbolo: undefined");
+    expect(prompt).toContain("POSICIONES ACTUALES (3 tenencias)");
+    expect(prompt).not.toContain("Símbolo: CASH.CNT");
+    expect(prompt).not.toContain("Símbolo: ZERO");
+    expect(prompt).toContain("ISIN: N/A | Moneda: N/A");
+    expect(prompt).toContain("Posición: N/A unidades");
+    expect(prompt).toContain("Técnico: sin datos");
+    expect(prompt).toContain("Sector=N/A");
+    expect(prompt).toContain("P/E=12.0");
+    expect(prompt).toContain("Crec. ingresos=N/A");
+  });
 });

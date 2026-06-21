@@ -14,12 +14,13 @@ describe("investment-profile", () => {
   });
 
   it("returns defaults when profile is missing", async () => {
-    const { getStoredInvestmentProfile } = await import(
+    const { getStoredInvestmentProfile, userHasSavedInvestmentProfile } = await import(
       "@/lib/investment-profile"
     );
     const stored = await getStoredInvestmentProfile("user_1");
     expect(stored.rules.riskProfile).toBe(DEFAULT_INVESTMENT_PROFILE.riskProfile);
     expect(stored.hasSavedText).toBe(false);
+    await expect(userHasSavedInvestmentProfile("user_1")).resolves.toBe(false);
   });
 
   it("detects saved profile editor text", async () => {

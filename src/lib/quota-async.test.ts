@@ -20,6 +20,12 @@ describe("quota async", () => {
     await expect(countClaudeReviewsThisMonth("user_1")).resolves.toBe(2);
   });
 
+  it("returns zero when no monthly review count row exists", async () => {
+    setSelectResult([]);
+    const { countClaudeReviewsThisMonth } = await import("@/lib/quota");
+    await expect(countClaudeReviewsThisMonth("user_1")).resolves.toBe(0);
+  });
+
   it("returns effective per-user limit", async () => {
     const { getEffectiveLimit } = await import("@/lib/quota");
     await expect(

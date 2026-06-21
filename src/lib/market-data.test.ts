@@ -80,6 +80,29 @@ describe("market data", () => {
     expect(analysis.fundamentals.sector).toBe("Financial Services");
   });
 
+  it("reads monthly bars from indicator quote payloads and skips incomplete quotes", async () => {
+    const { analyzeSymbol } = await import("@/lib/market-data");
+    chartMock.mockResolvedValue({
+      indicators: {
+        quote: [
+          [
+            { close: null, date: new Date(Date.UTC(2024, 0, 1)) },
+            { close: 100 },
+            ...monthlyQuotes(),
+          ],
+        ],
+      },
+    });
+
+    const analysis = await analyzeSymbol("VTI");
+
+    expect(analysis.history).toHaveLength(16);
+    expect(analysis.history[0]).toMatchObject({
+      date: "2024-01",
+      close: 100,
+    });
+  });
+
   it("returns a structured error when no monthly data is available", async () => {
     const { analyzeSymbol } = await import("@/lib/market-data");
     chartMock.mockResolvedValue({ quotes: [] });
@@ -100,5 +123,43 @@ describe("market data", () => {
     expect(analyses).toHaveLength(1);
     expect(analyses[0].symbol).toBe("VTI");
     expect(chartMock).toHaveBeenCalledOnce();
+  });
+
+  it("returns a structured portfolio error when symbol processing throws", async () => {
+    const { analyzePortfolio } = await import("@/lib/market-data");
+    let uppercaseCalls = 0;
+    const badSymbol = {
+      toUpperCase: () => {
+        if (uppercaseCalls++ === 0) return "BROKEN";
+        throw "symbol failed";
+      },
+    } as unknown as string;
+
+    const analyses = await analyzePortfolio([badSymbol]);
+
+    expect(analyses).toHaveLength(1);
+    expect(analyses[0]).toMatchObject({
+      symbol: badSymbol,
+      providerSymbol: badSymbol,
+      history: [],
+      fundamentals: {},
+      error: "symbol failed",
+    });
+    expect(analyses[0].signal.trendUp).toBe(false);
+  });
+
+  it("uses error messages for portfolio-level Error failures", async () => {
+    const { analyzePortfolio } = await import("@/lib/market-data");
+    let uppercaseCalls = 0;
+    const badSymbol = {
+      toUpperCase: () => {
+        if (uppercaseCalls++ === 0) return "BROKEN";
+        throw new Error("symbol exploded");
+      },
+    } as unknown as string;
+
+    const analyses = await analyzePortfolio([badSymbol]);
+
+    expect(analyses[0].error).toBe("symbol exploded");
   });
 });

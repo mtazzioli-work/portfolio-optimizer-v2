@@ -16,6 +16,11 @@ describe("settings", () => {
     await expect(getAppSetting("missing", "fallback")).resolves.toBe("fallback");
   });
 
+  it("returns null when setting and fallback are missing", async () => {
+    const { getAppSetting } = await import("@/lib/settings");
+    await expect(getAppSetting("missing")).resolves.toBeNull();
+  });
+
   it("returns stored setting value", async () => {
     selectChain.limit.mockResolvedValueOnce([{ value: "10" }]);
     const { getAppSetting } = await import("@/lib/settings");
@@ -37,5 +42,11 @@ describe("settings", () => {
     selectChain.limit.mockResolvedValueOnce([{ value: "invalid" }]);
     const { getMonthlyReviewLimitDefault } = await import("@/lib/settings");
     await expect(getMonthlyReviewLimitDefault()).resolves.toBe(3);
+  });
+
+  it("floors decimal monthly review limits", async () => {
+    selectChain.limit.mockResolvedValueOnce([{ value: "7.9" }]);
+    const { getMonthlyReviewLimitDefault } = await import("@/lib/settings");
+    await expect(getMonthlyReviewLimitDefault()).resolves.toBe(7);
   });
 });

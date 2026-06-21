@@ -27,11 +27,22 @@ describe("snapshots", () => {
       [
         { symbol: "AAPL", position: 1, positionValue: 100 },
         { symbol: "MSFT", position: 2, positionValue: 200 },
+        { symbol: "CASH", position: 1 },
       ],
       "text",
     );
     expect(id).toBe("generated-id");
     expect(db.insert).toHaveBeenCalled();
+    expect(db.update).toHaveBeenCalled();
+  });
+
+  it("saves an empty snapshot without inserting positions", async () => {
+    setSelectResult([{ id: "portfolio-1", userId: "user_1" }]);
+    const { saveSnapshot } = await import("@/lib/snapshots");
+
+    await expect(saveSnapshot("user_1", [], "csv")).resolves.toBe("generated-id");
+
+    expect(db.insert).toHaveBeenCalledTimes(1);
     expect(db.update).toHaveBeenCalled();
   });
 });
