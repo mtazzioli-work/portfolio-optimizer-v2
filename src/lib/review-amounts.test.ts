@@ -4,6 +4,8 @@ import {
   computeDestinationAmount,
   computeTotalPortfolioUsd,
   computeTrancheAmount,
+  formatNumber,
+  formatUsd,
   parseTranchePctsFromString,
   resolveEntryTranches,
   roundingResidue,
@@ -20,6 +22,9 @@ describe("review-amounts", () => {
   };
 
   it("formats and rounds amounts", () => {
+    expect(formatUsd(1234.56)).toContain("1,235");
+    expect(formatUsd(1234.56, { decimals: 2 })).toContain("1,234.56");
+    expect(formatNumber(1234)).toBe("1,234");
     expect(computeDestinationAmount(10000, 25)).toBe(2500);
     expect(computeTrancheAmount(1000, 50)).toBe(500);
     expect(totalLiquidAssetsUsd(liquid)).toBe(6000);
@@ -68,10 +73,24 @@ describe("review-amounts", () => {
     expect(fromString?.tranches).toHaveLength(2);
   });
 
+  it("returns null for entry plans without resolvable tranches", () => {
+    const createdAt = new Date("2026-01-15T12:00:00Z");
+
+    expect(resolveEntryTranches("sin porcentajes", 1000, createdAt)).toBeNull();
+    expect(
+      resolveEntryTranches(
+        { strategy: "dca", summary: "DCA sin tramos" },
+        1000,
+        createdAt,
+      ),
+    ).toBeNull();
+  });
+
   it("compares amounts and residues", () => {
     expect(roundingResidue([100, 200], 301)).toBe(1);
     expect(amountsDifferMoreThan(110, 100, 5)).toBe(true);
     expect(amountsDifferMoreThan(102, 100, 5)).toBe(false);
     expect(amountsDifferMoreThan(1, 0, 5)).toBe(true);
+    expect(amountsDifferMoreThan(0, 0, 5)).toBe(false);
   });
 });

@@ -55,6 +55,10 @@ describe("access", () => {
     expect(canAccessPath("/admin", "pending", "admin")).toBe(true);
   });
 
+  it("denies unknown access statuses defensively", () => {
+    expect(canAccessPath("/reviews", "unknown" as never, "user")).toBe(false);
+  });
+
   it("returns redirect targets", () => {
     expect(getAccessRedirectPath("/reviews", "pending", "user")).toBe("/waiting");
     expect(getAccessRedirectPath("/reviews", "denied", "user")).toBe("/denied");

@@ -54,6 +54,14 @@ describe("users", () => {
     await expect(getCurrentUser()).resolves.toBeNull();
   });
 
+  it("returns null when the session user is missing from the database", async () => {
+    mockGetSession.mockResolvedValue({ userId: "missing-user", sessionVersion: 0 });
+    setSelectResult([]);
+
+    const { getCurrentUser } = await import("@/lib/users");
+    await expect(getCurrentUser()).resolves.toBeNull();
+  });
+
   it("loads user by id", async () => {
     setSelectResult([
       {
@@ -67,5 +75,12 @@ describe("users", () => {
     const { getDbUser } = await import("@/lib/users");
     const user = await getDbUser("user-1");
     expect(user?.email).toBe("user@example.com");
+  });
+
+  it("returns null when loading a missing user by id", async () => {
+    setSelectResult([]);
+
+    const { getDbUser } = await import("@/lib/users");
+    await expect(getDbUser("missing-user")).resolves.toBeNull();
   });
 });

@@ -13,8 +13,7 @@ describe("email notifications", () => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", mockFetch);
     process.env.BREVO_API_KEY = "xkeysib-test-api-key";
-    process.env.EMAIL_FROM =
-      "Portfolio Optimizer <marcelo.h.tazzioli@gmail.com>";
+    delete process.env.EMAIL_FROM;
     mockFetch.mockResolvedValue({
       ok: true,
       status: 201,
@@ -48,6 +47,40 @@ describe("email notifications", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it("skips admin notification when there are no admin emails", async () => {
+    const { db } = await import("@/db");
+    vi.mocked(db.select).mockReturnValue({
+      from: () => ({
+        where: () => Promise.resolve([{ email: "" }, { email: null }]),
+      }),
+    } as never);
+
+    const { notifyAdminsNewUser } = await import("@/lib/email");
+    await notifyAdminsNewUser({ email: "a@b.com", userId: "user-1" });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("logs but does not throw when admin notification fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: async () => "Service unavailable",
+    });
+
+    const { notifyAdminsNewUser } = await import("@/lib/email");
+    await expect(
+      notifyAdminsNewUser({ email: "a@b.com", userId: "user-1" }),
+    ).resolves.toBeUndefined();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[email] Failed to notify admins:",
+      "Brevo API error 503: Service unavailable",
+    );
+    errorSpy.mockRestore();
+  });
+
   it("sends temporary password email", async () => {
     const { sendTemporaryPasswordEmail } = await import("@/lib/email");
     await sendTemporaryPasswordEmail({
@@ -59,6 +92,50 @@ describe("email notifications", () => {
     expect(body.to).toEqual([{ email: "user@example.com" }]);
   });
 
+  it("uses the configured sender address", async () => {
+    process.env.EMAIL_FROM = "Portfolio <mail@example.com>";
+
+    const { sendTemporaryPasswordEmail } = await import("@/lib/email");
+    await sendTemporaryPasswordEmail({
+      email: "user@example.com",
+      password: "TempPass123!",
+    });
+
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body.sender).toEqual({
+      name: "Portfolio",
+      email: "mail@example.com",
+    });
+  });
+
+  it("throws for temporary password email when brevo is not configured", async () => {
+    delete process.env.BREVO_API_KEY;
+
+    const { sendTemporaryPasswordEmail } = await import("@/lib/email");
+    await expect(
+      sendTemporaryPasswordEmail({
+        email: "user@example.com",
+        password: "TempPass123!",
+      }),
+    ).rejects.toThrow("BREVO_API_KEY no configurada");
+  });
+
+  it("throws when temporary password email delivery fails", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => "Unauthorized",
+    });
+
+    const { sendTemporaryPasswordEmail } = await import("@/lib/email");
+    await expect(
+      sendTemporaryPasswordEmail({
+        email: "user@example.com",
+        password: "TempPass123!",
+      }),
+    ).rejects.toThrow("Brevo API error 401");
+  });
+
   it("sends password reset email", async () => {
     const { sendPasswordResetEmail } = await import("@/lib/email");
     await sendPasswordResetEmail({
@@ -68,6 +145,18 @@ describe("email notifications", () => {
     expect(mockFetch).toHaveBeenCalledOnce();
     const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
     expect(body.htmlContent).toContain("reset-password?token=abc");
+  });
+
+  it("throws for password reset email when brevo is not configured", async () => {
+    delete process.env.BREVO_API_KEY;
+
+    const { sendPasswordResetEmail } = await import("@/lib/email");
+    await expect(
+      sendPasswordResetEmail({
+        email: "user@example.com",
+        resetUrl: "http://localhost:3000/reset-password?token=abc",
+      }),
+    ).rejects.toThrow("BREVO_API_KEY no configurada");
   });
 
   it("throws when brevo api returns an error", async () => {

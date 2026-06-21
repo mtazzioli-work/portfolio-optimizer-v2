@@ -190,4 +190,45 @@ describe("analysis-prompt", () => {
 
     expect(prompt).toContain("TENDENCIA ALCISTA");
   });
+
+  it("labels steady downtrend without fresh cross", () => {
+    const prompt = buildAnalysisPrompt(
+      [
+        {
+          id: "p1",
+          snapshotId: "s1",
+          symbol: "DEF",
+          position: 1,
+          markPrice: 50,
+          positionValue: 50,
+        } as never,
+      ],
+      [
+        {
+          symbol: "DEF",
+          providerSymbol: "DEF",
+          signal: {
+            ema6: 45,
+            ema10: 49,
+            rsi14: 35,
+            trendUp: false,
+            lastCross: 0,
+            closeAdj: 50,
+            lastMonthEnd: "2026-01-31",
+          },
+          fundamentals: null,
+        } as never,
+      ],
+      {
+        cashUsd: 0,
+        stablecoins: 0,
+        crypto: 0,
+        realEstate: 0,
+        liquidForInvesting: 0,
+      },
+      "perfil",
+    );
+
+    expect(prompt).toContain("TENDENCIA BAJISTA");
+  });
 });

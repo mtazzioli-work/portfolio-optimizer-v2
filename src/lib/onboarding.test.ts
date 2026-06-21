@@ -52,6 +52,16 @@ describe("onboarding", () => {
     expect(progress.isComplete).toBe(false);
   });
 
+  it("locks all incomplete steps for paused users", async () => {
+    mockUserHasSavedInvestmentProfile.mockResolvedValue(false);
+
+    const { getOnboardingProgress } = await import("@/lib/onboarding");
+    const progress = await getOnboardingProgress("user_1", "paused", false);
+
+    expect(progress.steps.every((step) => step.status === "locked")).toBe(true);
+    expect(progress.isComplete).toBe(false);
+  });
+
   it("marks step 2 complete when liquid_for_investing is positive", async () => {
     mockUserHasSavedInvestmentProfile.mockResolvedValue(true);
     mockGetLiquidAssetsForUser.mockResolvedValue([

@@ -8,6 +8,7 @@ describe("indicators", () => {
     expect(result).toHaveLength(5);
     expect(result[0]).toBe(1);
     expect(result[4]).toBeGreaterThan(result[0]);
+    expect(ema([], 3)).toEqual([]);
   });
 
   it("computes rsi", () => {
@@ -15,6 +16,7 @@ describe("indicators", () => {
     const result = rsi(values, 14);
     expect(result[19]).toBeGreaterThan(50);
     expect(Number.isNaN(result[0])).toBe(true);
+    expect(rsi([1, 2, 3], 14).every(Number.isNaN)).toBe(true);
   });
 
   it("builds signals with crosses", () => {
@@ -31,5 +33,6 @@ describe("indicators", () => {
       trendUp: expect.any(Boolean),
       cross: expect.any(Number),
     });
+    expect(buildSignals([])).toEqual([]);
   });
 });
