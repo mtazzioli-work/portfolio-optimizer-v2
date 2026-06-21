@@ -24,6 +24,26 @@ describe("liquid-assets-text", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("rejects malformed numeric amounts", () => {
+    const result = parseLiquidAssetsFromEditing("- Efectivo ocioso: $. USD");
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Monto inválido en la línea: "- Efectivo ocioso: $. USD"',
+    });
+  });
+
+  it("treats blank amounts as zero", () => {
+    const result = parseLiquidAssetsFromEditing("- Efectivo ocioso: $   USD");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.entries.find((e) => e.category === "cash_usd")?.amountUsd).toBe(
+        0,
+      );
+    }
+  });
+
   it("rejects empty valid categories", () => {
     const result = parseLiquidAssetsFromEditing("sin categorías válidas");
     expect(result.ok).toBe(false);

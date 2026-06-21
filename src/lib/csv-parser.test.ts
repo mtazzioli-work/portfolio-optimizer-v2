@@ -57,4 +57,58 @@ VTI,2,100`;
     expect(rows.length).toBeGreaterThanOrEqual(1);
     expect(rows.some((r) => r.symbol === "AAPL")).toBe(true);
   });
+
+  it("prioritizes IB open positions and enriches ISIN from instrument data", () => {
+    const ibCsv = `"Other Section","Header","Symbol","Quantity","Mark Price"
+"Other Section","Data","IGNORED","99","1"
+"Financial Instrument Information","Header","Symbol","Security ID"
+"Financial Instrument Information","Data","AAPL","US0378331005"
+"Open Positions","Header","DataDiscriminator","Symbol","Quantity","Mark Price","Position Value"
+"Open Positions","Data","Detail","MSFT","1","100","100"
+"Open Positions","Data","Summary","AAPL","2","150","300"`;
+
+    const rows = parseCSV(ibCsv);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        symbol: "AAPL",
+        isin: "US0378331005",
+        position: 2,
+        positionValue: 300,
+      }),
+    ]);
+  });
+
+  it("handles split thousands separators and placeholder numbers", () => {
+    const csv = `Symbol,Quantity,Mark Price,Position Value,Asset Category
+VTI,1,234.5,50,61,725,ETF
+CASH,--,-,abc,Total Assets
+BND,3,--,--,Bond`;
+
+    const rows = parseCSV(csv);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        symbol: "VTI",
+        position: 1234.5,
+        markPrice: 50,
+        positionValue: 61725,
+      }),
+      expect.objectContaining({
+        symbol: "BND",
+        position: 3,
+        markPrice: undefined,
+        positionValue: undefined,
+      }),
+    ]);
+  });
+
+  it("returns empty for IB reports without valid position sections", () => {
+    const ibCsv = `"Statement","Header","Name","Value"
+"Statement","Data","Account","DU123"
+"Open Positions","Header","Symbol","Mark Price"
+"Open Positions","Data","AAPL","150"`;
+
+    expect(parseCSV(ibCsv)).toEqual([]);
+  });
 });

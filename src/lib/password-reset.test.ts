@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockDelete = vi.fn();
+const mockDeleteWhere = vi.fn();
 const mockInsert = vi.fn();
+const mockInsertValues = vi.fn();
 const mockSelect = vi.fn();
 
 vi.mock("@/db", () => ({
@@ -16,8 +18,10 @@ vi.mock("@/db", () => ({
 describe("password reset tokens", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
-    mockInsert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) });
+    mockDeleteWhere.mockResolvedValue(undefined);
+    mockInsertValues.mockResolvedValue(undefined);
+    mockDelete.mockReturnValue({ where: mockDeleteWhere });
+    mockInsert.mockReturnValue({ values: mockInsertValues });
   });
 
   it("hashes tokens deterministically", async () => {
@@ -33,6 +37,13 @@ describe("password reset tokens", () => {
     expect(token.length).toBeGreaterThan(20);
     expect(mockDelete).toHaveBeenCalledOnce();
     expect(mockInsert).toHaveBeenCalledOnce();
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        expiresAt: expect.any(Date),
+      }),
+    );
   });
 
   it("finds a valid token user id", async () => {
@@ -59,5 +70,17 @@ describe("password reset tokens", () => {
 
     const { findValidPasswordResetUserId } = await import("@/lib/password-reset");
     await expect(findValidPasswordResetUserId("token")).resolves.toBeNull();
+  });
+
+  it("consumes tokens by deleting their hash", async () => {
+    const { consumePasswordResetToken, hashPasswordResetToken } = await import(
+      "@/lib/password-reset"
+    );
+
+    await consumePasswordResetToken("token");
+
+    expect(mockDelete).toHaveBeenCalledOnce();
+    expect(mockDeleteWhere).toHaveBeenCalledOnce();
+    expect(hashPasswordResetToken("token")).toMatch(/^[a-f0-9]{64}$/);
   });
 });

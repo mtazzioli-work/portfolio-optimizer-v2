@@ -190,4 +190,115 @@ describe("analysis-prompt", () => {
 
     expect(prompt).toContain("TENDENCIA ALCISTA");
   });
+
+  it("filters synthetic cash rows and labels missing and bearish data", () => {
+    const prompt = buildAnalysisPrompt(
+      [
+        {
+          id: "p1",
+          snapshotId: "s1",
+          symbol: "CASH.CNT",
+          position: 100,
+          positionValue: 100,
+        } as never,
+        {
+          id: "p2",
+          snapshotId: "s1",
+          symbol: "BND",
+          position: 2,
+          positionValue: 200,
+        } as never,
+        {
+          id: "p3",
+          snapshotId: "s1",
+          symbol: "SPY",
+          position: 1,
+          markPrice: 400,
+          positionValue: 400,
+          costBasisPrice: 410,
+          currency: "USD",
+        } as never,
+      ],
+      [
+        {
+          symbol: "SPY",
+          providerSymbol: "SPY",
+          signal: {
+            ema6: 390,
+            ema10: 410,
+            rsi14: 35,
+            trendUp: false,
+            lastCross: 0,
+            closeAdj: 400,
+            lastMonthEnd: "2026-01-31",
+          },
+          fundamentals: {
+            sector: null,
+            industry: "Index",
+            pe: null,
+            forwardPe: null,
+            revenueGrowth: null,
+            profitMargins: null,
+          },
+        } as never,
+      ],
+      {
+        cashUsd: 10,
+        stablecoins: 20,
+        crypto: 30,
+        realEstate: 40,
+        liquidForInvesting: 50,
+      },
+      "perfil",
+    );
+
+    expect(prompt).not.toContain("Símbolo: CASH.CNT");
+    expect(prompt).toContain("Símbolo: BND");
+    expect(prompt).toContain("Técnico: sin datos");
+    expect(prompt).toContain("TENDENCIA BAJISTA");
+    expect(prompt).toContain("P&L: -2.4%");
+  });
+
+  it("uses fundamental fallbacks when only partial data is available", () => {
+    const prompt = buildAnalysisPrompt(
+      [
+        {
+          id: "p1",
+          snapshotId: "s1",
+          symbol: "QQQ",
+          position: 1,
+          markPrice: 100,
+          positionValue: 100,
+          currency: "USD",
+        } as never,
+      ],
+      [
+        {
+          symbol: "QQQ",
+          providerSymbol: "QQQ",
+          fundamentals: {
+            sector: "Technology",
+            industry: null,
+            pe: null,
+            forwardPe: null,
+            revenueGrowth: null,
+            profitMargins: null,
+          },
+        } as never,
+      ],
+      {
+        cashUsd: 0,
+        stablecoins: 0,
+        crypto: 0,
+        realEstate: 0,
+        liquidForInvesting: 0,
+      },
+      "perfil",
+    );
+
+    expect(prompt).toContain("Fundamental: Sector=Technology");
+    expect(prompt).toContain("Industria=N/A");
+    expect(prompt).toContain("P/E=N/A");
+    expect(prompt).toContain("Crec. ingresos=N/A");
+  });
 });

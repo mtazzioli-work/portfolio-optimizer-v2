@@ -68,4 +68,11 @@ describe("users", () => {
     const user = await getDbUser("user-1");
     expect(user?.email).toBe("user@example.com");
   });
+
+  it("returns null when user id is missing", async () => {
+    setSelectResult([]);
+    const { getDbUser } = await import("@/lib/users");
+
+    await expect(getDbUser("missing")).resolves.toBeNull();
+  });
 });

@@ -76,6 +76,14 @@ describe("investment-profile-text", () => {
       .replace(
         "- Regla de tendencia: EMA(6) vs EMA(10) on monthly close",
         "- Regla de tendencia: custom trend",
+      )
+      .replace(
+        "- Disparador de entrada: month-end candle close",
+        "- Disparador de entrada: custom trigger",
+      )
+      .replace(
+        "- Estrategia de entrada: DCA by tranches 25%/25%/50% at limit orders",
+        "- Estrategia de entrada: custom entry",
       );
 
     const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
@@ -83,6 +91,8 @@ describe("investment-profile-text", () => {
     if (parsed.ok) {
       expect(parsed.rules.technicalRules.primaryTimeframe).toBe("weekly");
       expect(parsed.rules.technicalRules.trendRule).toBe("custom trend");
+      expect(parsed.rules.technicalRules.trigger).toBe("custom trigger");
+      expect(parsed.rules.technicalRules.entryStrategy).toBe("custom entry");
     }
   });
 
@@ -105,6 +115,64 @@ describe("investment-profile-text", () => {
     }
   });
 
+  it("falls back to base values for invalid optional percentages and ranges", () => {
+    const edited = serialized
+      .replace("Drawdown máximo del portfolio: 10%", "Drawdown máximo del portfolio: n/a")
+      .replace("- Equity / ETFs: 45%–65%", "- Equity / ETFs: inválido");
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.maxPortfolioDrawdown).toBe(
+        DEFAULT_INVESTMENT_PROFILE.maxPortfolioDrawdown,
+      );
+      expect(parsed.rules.targetAllocation.equityEtf).toEqual(
+        DEFAULT_INVESTMENT_PROFILE.targetAllocation.equityEtf,
+      );
+    }
+  });
+
+  it("uses base values when editable sections are omitted", () => {
+    const parsed = parseProfileFromEditing(
+      "PERFIL DE INVERSIÓN\nRiesgo: moderate",
+      DEFAULT_INVESTMENT_PROFILE,
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.horizon).toBe(DEFAULT_INVESTMENT_PROFILE.horizon);
+      expect(parsed.rules.targetAllocation).toEqual(
+        DEFAULT_INVESTMENT_PROFILE.targetAllocation,
+      );
+      expect(parsed.rules.technicalRules).toEqual(
+        DEFAULT_INVESTMENT_PROFILE.technicalRules,
+      );
+      expect(parsed.rules.notes).toBe(DEFAULT_INVESTMENT_PROFILE.notes);
+    }
+  });
+
+  it("parses remaining account fields and prohibited instruments", () => {
+    const edited = serialized
+      .replace("Horizonte: 3-5 years", "Horizonte: 10 years")
+      .replace("Jurisdicción fiscal: Your country", "Jurisdicción fiscal: Uruguay")
+      .replace("Tipo de cuenta: Cash brokerage account", "Tipo de cuenta: IRA")
+      .replace(
+        "INSTRUMENTOS PROHIBIDOS: short selling, High Yield bonds, options, leverage, margin",
+        "INSTRUMENTOS PROHIBIDOS: leverage, margin",
+      );
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.horizon).toBe("10 years");
+      expect(parsed.rules.taxJurisdiction).toBe("Uruguay");
+      expect(parsed.rules.accountType).toBe("IRA");
+      expect(parsed.rules.prohibitedInstruments).toEqual(["leverage", "margin"]);
+    }
+  });
+
   it("reads stored editor text", () => {
     const stored = {
       ...DEFAULT_INVESTMENT_PROFILE,
@@ -115,5 +183,15 @@ describe("investment-profile-text", () => {
     );
     expect(hasSavedProfileEditorText(stored)).toBe(true);
     expect(toInvestmentRules(stored).riskProfile).toBe("moderate");
+  });
+
+  it("falls back when stored editor text is blank", () => {
+    const stored = {
+      ...DEFAULT_INVESTMENT_PROFILE,
+      profileEditorText: "   ",
+    };
+
+    expect(getProfileEditorText(stored, DEFAULT_INVESTMENT_PROFILE)).toBe(serialized);
+    expect(hasSavedProfileEditorText(stored)).toBe(false);
   });
 });
