@@ -45,22 +45,47 @@ export function PortfolioUploadWorkspace({
   const [hasUnsavedLiquidAssets, setHasUnsavedLiquidAssets] = useState(false);
 
   return (
-    <div className="space-y-6">
-      <PortfolioUploadClient
-        uploadSnapshotCsv={uploadSnapshotCsv}
-        uploadSnapshotText={uploadSnapshotText}
-        requestReview={requestReview}
-        hasUnsavedLiquidAssets={hasUnsavedLiquidAssets}
-        hasInvestmentProfile={hasInvestmentProfile}
-      />
+    <div className="space-y-8">
+      <section id="activos-liquidos" className="scroll-mt-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-medium">1. Activos líquidos</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Declaralos antes de subir el snapshot; la revisión los usa junto con
+            tus posiciones del broker.
+          </p>
+        </div>
 
-      <LiquidAssetsEditor
-        key={editorKey}
-        initialText={editorText}
-        canEdit={canEditLiquid}
-        saveLiquidAssets={saveLiquidAssets}
-        onDirtyChange={setHasUnsavedLiquidAssets}
-      />
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+          <strong>Efectivo disponible para invertir:</strong> ese monto es el
+          capital que la revisión considerará para asignar nuevas compras.
+        </div>
+
+        <LiquidAssetsEditor
+          key={editorKey}
+          initialText={editorText}
+          canEdit={canEditLiquid}
+          saveLiquidAssets={saveLiquidAssets}
+          onDirtyChange={setHasUnsavedLiquidAssets}
+        />
+      </section>
+
+      <section id="subir-snapshot" className="scroll-mt-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-medium">2. Snapshot del portfolio</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Subí el CSV de tu cartera para crear una foto actual de tus
+            posiciones y solicitar una revisión.
+          </p>
+        </div>
+
+        <PortfolioUploadClient
+          uploadSnapshotCsv={uploadSnapshotCsv}
+          uploadSnapshotText={uploadSnapshotText}
+          requestReview={requestReview}
+          hasUnsavedLiquidAssets={hasUnsavedLiquidAssets}
+          hasInvestmentProfile={hasInvestmentProfile}
+        />
+      </section>
     </div>
   );
 }

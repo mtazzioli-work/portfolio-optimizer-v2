@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminSubnav } from "@/components/admin/admin-subnav";
-import { LogoutButton } from "@/components/logout-button";
+import { UserMenu } from "@/components/user-menu";
 import { NavSidebar } from "@/components/nav-sidebar";
 import { getCurrentUser } from "@/lib/users";
 
@@ -23,7 +22,7 @@ export default async function AdminLayout({
             <span className="font-semibold">Admin</span>
             <AdminSubnav />
           </div>
-          <LogoutButton email={user.email} />
+          <UserMenu email={user.email} />
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>

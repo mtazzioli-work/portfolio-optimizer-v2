@@ -46,8 +46,6 @@ export function canAccessPath(
       return (
         pathname === "/" ||
         isSettingsPath(pathname) ||
-        pathname === "/history" ||
-        pathname.startsWith("/history/") ||
         pathname === "/reviews" ||
         pathname.startsWith("/reviews/")
       );

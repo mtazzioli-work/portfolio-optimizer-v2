@@ -46,7 +46,6 @@ async function uploadSnapshotCsv(
 
     revalidatePath("/portfolio/upload");
     revalidatePath("/");
-    revalidatePath("/history");
     revalidatePath("/reviews");
 
     return { count: rows.length, snapshotId };
@@ -79,7 +78,6 @@ async function uploadSnapshotText(
     const snapshotId = await saveSnapshot(user.id, rows, "text");
     revalidatePath("/portfolio/upload");
     revalidatePath("/");
-    revalidatePath("/history");
     revalidatePath("/reviews");
     return { count: rows.length, snapshotId };
   } catch (e) {
@@ -134,8 +132,9 @@ export default async function PortfolioUploadPage() {
       <div>
         <h1 className="text-2xl font-semibold">Subir snapshot</h1>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          Creá un nuevo snapshot de tu portfolio y actualizá tus activos líquidos
-          para el contexto de asignación en reviews.
+          Primero definí tus activos líquidos (incluí el efectivo disponible para
+          invertir); después subí el CSV de tu portfolio para generar una
+          revisión.
         </p>
       </div>
 
