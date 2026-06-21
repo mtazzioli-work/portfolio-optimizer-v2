@@ -1,5 +1,6 @@
-import { getOrCreateUser } from "@/lib/users";
 import { getQuotaUsage } from "@/lib/quota";
+import { formatNumber, formatUsd } from "@/lib/review-amounts";
+import { getCurrentUser } from "@/lib/users";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -9,7 +10,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
   const quota =
@@ -19,7 +20,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <h1 className="text-2xl font-semibold">Panel</h1>
       <p className="text-zinc-600 dark:text-zinc-400">
         Bienvenido. Acá verás el resumen de tu portfolio cuando subas snapshots.
       </p>
@@ -32,8 +33,7 @@ export default async function DashboardPage() {
         {user.accessStatus === "pending" && (
           <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
             Usuario pendiente, aguarde su aprobación para optimizar su
-            portafolio. Mientras tanto podés configurar tu perfil de inversión y
-            activos líquidos.
+            portafolio. Mientras tanto podés configurar tu perfil de inversión.
           </p>
         )}
         {user.accessStatus === "paused" && (
@@ -53,6 +53,12 @@ export default async function DashboardPage() {
           <p className="mt-1 text-sm text-zinc-500">
             {quota.remaining} restantes (mes calendario, Argentina)
           </p>
+          {quota.totalTokens > 0 && (
+            <p className="mt-1 text-sm text-zinc-500">
+              {formatNumber(quota.totalTokens)} tokens · ~
+              {formatUsd(quota.totalCostUsd, { decimals: 2 })} este mes
+            </p>
+          )}
         </section>
       )}
     </div>

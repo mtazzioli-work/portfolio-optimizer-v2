@@ -1,55 +1,30 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { investmentProfiles, portfolios, users, type User } from "@/db/schema";
-import { DEFAULT_INVESTMENT_PROFILE } from "@/lib/default-investment-profile";
+import { users, type User } from "@/db/schema";
+import { getSessionFromCookies } from "@/lib/auth";
+import { warnMissingProductionSecrets } from "@/lib/env";
 
-export async function getDbUser(clerkUserId: string): Promise<User | null> {
+export async function getDbUser(id: string): Promise<User | null> {
   const [row] = await db
     .select()
     .from(users)
-    .where(eq(users.clerkUserId, clerkUserId))
+    .where(eq(users.id, id))
     .limit(1);
   return row ?? null;
 }
 
-export async function getOrCreateUser(): Promise<User | null> {
-  const { userId } = await auth();
-  if (!userId) return null;
+export async function getCurrentUser(): Promise<User | null> {
+  warnMissingProductionSecrets();
 
-  const existing = await getDbUser(userId);
-  if (existing) return existing;
+  const session = await getSessionFromCookies();
+  if (!session) return null;
 
-  const clerkUser = await currentUser();
-  const email =
-    clerkUser?.primaryEmailAddress?.emailAddress ??
-    clerkUser?.emailAddresses[0]?.emailAddress;
+  const user = await getDbUser(session.userId);
+  if (!user) return null;
 
-  if (!email) return null;
-
-  const bootstrapEmail = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-  const isBootstrapAdmin =
-    bootstrapEmail && email.toLowerCase() === bootstrapEmail;
-
-  const [created] = await db
-    .insert(users)
-    .values({
-      clerkUserId: userId,
-      email,
-      accessStatus: isBootstrapAdmin ? "active" : "pending",
-      role: isBootstrapAdmin ? "admin" : "user",
-    })
-    .onConflictDoNothing()
-    .returning();
-
-  if (created) {
-    await db.insert(portfolios).values({ userId: created.clerkUserId });
-    await db.insert(investmentProfiles).values({
-      userId: created.clerkUserId,
-      rulesJson: DEFAULT_INVESTMENT_PROFILE,
-    });
-    return created;
+  if (user.sessionVersion !== session.sessionVersion) {
+    return null;
   }
 
-  return getDbUser(userId);
+  return user;
 }

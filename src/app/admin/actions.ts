@@ -4,11 +4,12 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { appSettings, users, type AccessStatus } from "@/db/schema";
+import { resetUserPassword as resetUserPasswordAction } from "@/app/auth/actions";
 import { MONTHLY_REVIEW_LIMIT_DEFAULT_KEY } from "@/lib/settings";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 
 async function requireAdmin() {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || user.role !== "admin") {
     throw new Error("No autorizado");
   }
@@ -16,7 +17,7 @@ async function requireAdmin() {
 }
 
 export async function updateUserAccessStatus(
-  clerkUserId: string,
+  userId: string,
   accessStatus: AccessStatus,
 ) {
   await requireAdmin();
@@ -24,13 +25,13 @@ export async function updateUserAccessStatus(
   await db
     .update(users)
     .set({ accessStatus, updatedAt: new Date() })
-    .where(eq(users.clerkUserId, clerkUserId));
+    .where(eq(users.id, userId));
 
   revalidatePath("/admin");
 }
 
 export async function updateUserMonthlyReviewLimit(
-  clerkUserId: string,
+  userId: string,
   limit: number | null,
 ) {
   await requireAdmin();
@@ -41,7 +42,7 @@ export async function updateUserMonthlyReviewLimit(
       monthlyReviewLimit: limit,
       updatedAt: new Date(),
     })
-    .where(eq(users.clerkUserId, clerkUserId));
+    .where(eq(users.id, userId));
 
   revalidatePath("/admin");
 }
@@ -75,7 +76,7 @@ export async function updateMonthlyReviewLimitDefault(formData: FormData) {
 }
 
 export async function updateUserMonthlyReviewLimitFromForm(
-  clerkUserId: string,
+  userId: string,
   formData: FormData,
 ) {
   await requireAdmin();
@@ -94,7 +95,13 @@ export async function updateUserMonthlyReviewLimitFromForm(
       monthlyReviewLimit: limit === null ? null : Math.floor(limit),
       updatedAt: new Date(),
     })
-    .where(eq(users.clerkUserId, clerkUserId));
+    .where(eq(users.id, userId));
 
+  revalidatePath("/admin");
+}
+
+export async function resetUserPassword(userId: string) {
+  await requireAdmin();
+  await resetUserPasswordAction(userId);
   revalidatePath("/admin");
 }

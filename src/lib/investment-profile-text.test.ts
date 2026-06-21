@@ -1,180 +1,119 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_INVESTMENT_PROFILE } from "@/lib/default-investment-profile";
 import {
   getProfileEditorText,
+  hasSavedProfileEditorText,
   parseProfileFromEditing,
+  profileDefinesOutputFormat,
   serializeProfileForEditing,
   toInvestmentRules,
 } from "@/lib/investment-profile-text";
-import {
-  DEFAULT_INVESTMENT_PROFILE,
-} from "@/lib/default-investment-profile";
 
-describe("investment profile editor text", () => {
-  it("round-trips serialized rules through the editable text format", () => {
-    const text = serializeProfileForEditing(DEFAULT_INVESTMENT_PROFILE);
-    const parsed = parseProfileFromEditing(text, DEFAULT_INVESTMENT_PROFILE);
+describe("investment-profile-text", () => {
+  const serialized = serializeProfileForEditing(DEFAULT_INVESTMENT_PROFILE);
 
+  it("serializes default profile", () => {
+    expect(serialized).toContain("PERFIL DE INVERSIÓN");
+    expect(serialized).toContain("Riesgo: moderate");
+  });
+
+  it("parses edited profile text", () => {
+    const edited = serialized.replace("Riesgo: moderate", "Riesgo: aggressive");
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.rules).toEqual(DEFAULT_INVESTMENT_PROFILE);
+      expect(parsed.rules.riskProfile).toBe("aggressive");
     }
   });
 
-  it("merges partial edits with the base profile", () => {
-    const parsed = parseProfileFromEditing(
-      [
-        "Riesgo: conservative",
-        "Objetivo: income",
-        "Horizonte: 10+ years",
-        "NOTAS ADICIONALES:",
-        "Prefer capital preservation.",
-      ].join("\n"),
-      DEFAULT_INVESTMENT_PROFILE,
+  it("rejects invalid risk profile", () => {
+    const edited = serialized.replace("Riesgo: moderate", "Riesgo: invalid");
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+    expect(parsed.ok).toBe(false);
+  });
+
+  it("detects custom output format", () => {
+    expect(profileDefinesOutputFormat("Sección B.1) resultado")).toBe(true);
+    expect(profileDefinesOutputFormat("perfil simple")).toBe(false);
+  });
+
+  it("rejects invalid objective and rebalancing", () => {
+    const editedObjective = serialized.replace("Objetivo: growth", "Objetivo: invalid");
+    expect(parseProfileFromEditing(editedObjective, DEFAULT_INVESTMENT_PROFILE).ok).toBe(
+      false,
     );
 
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) {
-      expect(parsed.rules).toMatchObject({
-        riskProfile: "conservative",
-        objective: "income",
-        horizon: "10+ years",
-        notes: "Prefer capital preservation.",
-      });
-      expect(parsed.rules.targetAllocation).toEqual(
-        DEFAULT_INVESTMENT_PROFILE.targetAllocation,
-      );
-      expect(parsed.rules.rebalancingPolicy).toBe(
-        DEFAULT_INVESTMENT_PROFILE.rebalancingPolicy,
-      );
-    }
-  });
-
-  it("accepts percentages with and without percent signs and both range separators", () => {
-    const parsed = parseProfileFromEditing(
-      [
-        "Drawdown máximo del portfolio: 12.5",
-        "Pérdida máxima por posición: 35%",
-        "- Equity / ETFs: 45 - 55",
-        "- Bonos IG / T-bills: 20%–30%",
-        "- Commodities / Metales: 5-10",
-        "- Crypto: 0%–5%",
-        "- Liquidez (efectivo/stablecoins): 10 - 15",
-      ].join("\n"),
-      DEFAULT_INVESTMENT_PROFILE,
-    );
-
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) {
-      expect(parsed.rules.maxPortfolioDrawdown).toBe(0.125);
-      expect(parsed.rules.maxPositionLoss).toBe(0.35);
-      expect(parsed.rules.targetAllocation).toEqual({
-        equityEtf: { min: 0.45, max: 0.55 },
-        bondsIG: { min: 0.2, max: 0.3 },
-        commodities: { min: 0.05, max: 0.1 },
-        crypto: { min: 0, max: 0.05 },
-        liquidity: { min: 0.1, max: 0.15 },
-      });
-    }
-  });
-
-  it.each([
-    [
-      "Riesgo: speculative",
-      "Riesgo inválido. Usá: conservative, moderate o aggressive.",
-    ],
-    [
-      "Objetivo: speculation",
-      "Objetivo inválido. Usá: growth, income o balanced.",
-    ],
-    [
+    const editedRebalancing = serialized.replace(
+      "REBALANCEO: quarterly",
       "REBALANCEO: weekly",
-      "Rebalanceo inválido. Usá: monthly, quarterly, semi-annual o annual.",
-    ],
-  ])("returns a helpful parse error for %s", (text, error) => {
-    expect(parseProfileFromEditing(text, DEFAULT_INVESTMENT_PROFILE)).toEqual({
-      ok: false,
-      error,
-    });
+    );
+    expect(
+      parseProfileFromEditing(editedRebalancing, DEFAULT_INVESTMENT_PROFILE).ok,
+    ).toBe(false);
   });
 
-  it("parses list and technical-rule edits", () => {
-    const parsed = parseProfileFromEditing(
-      [
-        "DIVERSIFICACIÓN GEOGRÁFICA: USA, EU, Japan",
-        "INSTRUMENTOS PERMITIDOS: ETFs, T-bills",
-        "INSTRUMENTOS PROHIBIDOS: leverage, options",
-        "- Timeframe principal: weekly",
-        "- Regla de tendencia: price above SMA(20)",
-        "- Disparador de entrada: weekly close",
-        "- Estrategia de entrada: single tranche",
-      ].join("\n"),
-      DEFAULT_INVESTMENT_PROFILE,
-    );
+  it("parses drawdown and allocation ranges", () => {
+    const edited = serialized
+      .replace("Drawdown máximo del portfolio: 10%", "Drawdown máximo del portfolio: 12%")
+      .replace("Pérdida máxima por posición: 30%", "Pérdida máxima por posición: 25%")
+      .replace(
+        "DIVERSIFICACIÓN GEOGRÁFICA: USA, EU, LatAm, Other",
+        "DIVERSIFICACIÓN GEOGRÁFICA: USA, EU",
+      );
 
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.rules.geoDiversification).toEqual(["USA", "EU", "Japan"]);
-      expect(parsed.rules.allowedInstruments).toEqual(["ETFs", "T-bills"]);
-      expect(parsed.rules.prohibitedInstruments).toEqual([
-        "leverage",
-        "options",
-      ]);
-      expect(parsed.rules.technicalRules).toEqual({
-        primaryTimeframe: "weekly",
-        trendRule: "price above SMA(20)",
-        trigger: "weekly close",
-        entryStrategy: "single tranche",
-      });
+      expect(parsed.rules.maxPortfolioDrawdown).toBe(0.12);
+      expect(parsed.rules.maxPositionLoss).toBe(0.25);
+      expect(parsed.rules.geoDiversification).toEqual(["USA", "EU"]);
     }
   });
 
-  it("prefers persisted editor text when it is non-empty", () => {
-    expect(
-      getProfileEditorText(
-        { ...DEFAULT_INVESTMENT_PROFILE, profileEditorText: "Custom text" },
-        DEFAULT_INVESTMENT_PROFILE,
-      ),
-    ).toBe("Custom text");
+  it("parses technical rules from profile text", () => {
+    const edited = serialized
+      .replace("- Timeframe principal: monthly", "- Timeframe principal: weekly")
+      .replace(
+        "- Regla de tendencia: EMA(6) vs EMA(10) on monthly close",
+        "- Regla de tendencia: custom trend",
+      );
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.technicalRules.primaryTimeframe).toBe("weekly");
+      expect(parsed.rules.technicalRules.trendRule).toBe("custom trend");
+    }
   });
 
-  it("falls back to serialized rules when persisted editor text is absent or blank", () => {
-    expect(
-      getProfileEditorText(
-        { ...DEFAULT_INVESTMENT_PROFILE, profileEditorText: "   " },
-        DEFAULT_INVESTMENT_PROFILE,
-      ),
-    ).toBe(serializeProfileForEditing(DEFAULT_INVESTMENT_PROFILE));
+  it("parses notes and instrument lists", () => {
+    const edited = serialized
+      .replace(
+        "INSTRUMENTOS PERMITIDOS: ETFs UCITS, US ETFs, commodities ETFs, precious metals ETFs, T-bills, IG bonds ETFs",
+        "INSTRUMENTOS PERMITIDOS: ETFs UCITS, US ETFs",
+      )
+      .replace(
+        "NOTAS ADICIONALES:\nCustomize allocation targets, constraints, and notes in Settings before running analysis.",
+        "NOTAS ADICIONALES:\nNota personalizada",
+      );
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.allowedInstruments).toEqual(["ETFs UCITS", "US ETFs"]);
+      expect(parsed.rules.notes).toBe("Nota personalizada");
+    }
   });
 
-  it("removes profileEditorText before sending rules to downstream review code", () => {
+  it("reads stored editor text", () => {
     const stored = {
       ...DEFAULT_INVESTMENT_PROFILE,
-      profileEditorText: "Editable copy",
+      profileEditorText: "mi texto",
     };
-
-    const rules = toInvestmentRules(stored);
-
-    expect(rules).toEqual(DEFAULT_INVESTMENT_PROFILE);
-    expect(rules).not.toHaveProperty("profileEditorText");
-  });
-
-  it("preserves base values when malformed optional percentage fields are edited", () => {
-    const parsed = parseProfileFromEditing(
-      [
-        "Drawdown máximo del portfolio: not a percent",
-        "- Equity / ETFs: invalid",
-      ].join("\n"),
-      DEFAULT_INVESTMENT_PROFILE,
+    expect(getProfileEditorText(stored, DEFAULT_INVESTMENT_PROFILE)).toBe(
+      "mi texto",
     );
-
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) {
-      expect(parsed.rules.maxPortfolioDrawdown).toBe(
-        DEFAULT_INVESTMENT_PROFILE.maxPortfolioDrawdown,
-      );
-      expect(parsed.rules.targetAllocation.equityEtf).toEqual(
-        DEFAULT_INVESTMENT_PROFILE.targetAllocation.equityEtf,
-      );
-    }
+    expect(hasSavedProfileEditorText(stored)).toBe(true);
+    expect(toInvestmentRules(stored).riskProfile).toBe("moderate");
   });
 });

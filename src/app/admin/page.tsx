@@ -2,11 +2,17 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import {
+  resetUserPassword,
   updateMonthlyReviewLimitDefault,
   updateUserAccessStatus,
   updateUserMonthlyReviewLimitFromForm,
 } from "@/app/admin/actions";
-import { countClaudeReviewsThisMonth, getEffectiveLimit } from "@/lib/quota";
+import {
+  countClaudeReviewsThisMonth,
+  getEffectiveLimit,
+  getMonthlyTokenUsage,
+} from "@/lib/quota";
+import { formatNumber, formatUsd } from "@/lib/review-amounts";
 import { getMonthlyReviewLimitDefault } from "@/lib/settings";
 
 export default async function AdminPage({
@@ -25,9 +31,10 @@ export default async function AdminPage({
 
   const rows = await Promise.all(
     displayed.map(async (u) => {
-      const used = await countClaudeReviewsThisMonth(u.clerkUserId);
+      const used = await countClaudeReviewsThisMonth(u.id);
       const limit = await getEffectiveLimit(u);
-      return { user: u, used, limit };
+      const tokens = await getMonthlyTokenUsage(u.id);
+      return { user: u, used, limit, tokens };
     }),
   );
 
@@ -81,13 +88,14 @@ export default async function AdminPage({
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Rol</th>
                 <th className="px-3 py-2">Reviews / límite</th>
+                <th className="px-3 py-2">Tokens / costo mes</th>
                 <th className="px-3 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ user: u, used, limit }) => (
+              {rows.map(({ user: u, used, limit, tokens }) => (
                 <tr
-                  key={u.clerkUserId}
+                  key={u.id}
                   className="border-t border-zinc-100 dark:border-zinc-800"
                 >
                   <td className="px-3 py-2">{u.email}</td>
@@ -96,6 +104,16 @@ export default async function AdminPage({
                   <td className="px-3 py-2">
                     {used} / {limit}
                   </td>
+                  <td className="px-3 py-2 text-xs">
+                    {tokens.totalTokens > 0 ? (
+                      <>
+                        {formatNumber(tokens.totalTokens)} · ~
+                        {formatUsd(tokens.totalCostUsd, { decimals: 2 })}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       {u.accessStatus === "pending" && (
@@ -103,7 +121,7 @@ export default async function AdminPage({
                           <form
                             action={updateUserAccessStatus.bind(
                               null,
-                              u.clerkUserId,
+                              u.id,
                               "active",
                             )}
                           >
@@ -117,7 +135,7 @@ export default async function AdminPage({
                           <form
                             action={updateUserAccessStatus.bind(
                               null,
-                              u.clerkUserId,
+                              u.id,
                               "denied",
                             )}
                           >
@@ -134,7 +152,7 @@ export default async function AdminPage({
                         <form
                           action={updateUserAccessStatus.bind(
                             null,
-                            u.clerkUserId,
+                            u.id,
                             "paused",
                           )}
                         >
@@ -150,7 +168,7 @@ export default async function AdminPage({
                         <form
                           action={updateUserAccessStatus.bind(
                             null,
-                            u.clerkUserId,
+                            u.id,
                             "active",
                           )}
                         >
@@ -166,7 +184,7 @@ export default async function AdminPage({
                         <form
                           action={updateUserAccessStatus.bind(
                             null,
-                            u.clerkUserId,
+                            u.id,
                             "active",
                           )}
                         >
@@ -180,9 +198,20 @@ export default async function AdminPage({
                       )}
                     </div>
                     <form
+                      action={resetUserPassword.bind(null, u.id)}
+                      className="mt-2"
+                    >
+                      <button
+                        type="submit"
+                        className="rounded bg-zinc-700 px-2 py-0.5 text-xs text-white"
+                      >
+                        Resetear contraseña
+                      </button>
+                    </form>
+                    <form
                       action={updateUserMonthlyReviewLimitFromForm.bind(
                         null,
-                        u.clerkUserId,
+                        u.id,
                       )}
                       className="mt-2 flex items-center gap-1"
                     >

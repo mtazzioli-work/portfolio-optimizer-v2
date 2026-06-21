@@ -12,7 +12,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Panel" },
   {
     href: "/portfolio/upload",
     label: "Subir snapshot",
@@ -31,6 +31,14 @@ const NAV_ITEMS: NavItem[] = [
       accessStatus === "active" || accessStatus === "paused",
   },
   {
+    href: "/settings/password",
+    label: "Contraseña",
+    show: ({ accessStatus }) =>
+      accessStatus === "active" ||
+      accessStatus === "pending" ||
+      accessStatus === "paused",
+  },
+  {
     href: "/settings/investment-profile",
     label: "Perfil de inversión",
     show: ({ accessStatus }) =>
@@ -39,16 +47,13 @@ const NAV_ITEMS: NavItem[] = [
       accessStatus === "paused",
   },
   {
-    href: "/settings/liquid-assets",
-    label: "Activos líquidos",
-    show: ({ accessStatus }) =>
-      accessStatus === "active" ||
-      accessStatus === "pending" ||
-      accessStatus === "paused",
-  },
-  {
     href: "/admin",
     label: "Admin",
+    show: ({ role }) => role === "admin",
+  },
+  {
+    href: "/admin/profile-chips",
+    label: "Chips de perfil",
     show: ({ role }) => role === "admin",
   },
 ];
@@ -74,7 +79,9 @@ export function NavSidebar({
           const active =
             item.href === "/"
               ? pathname === "/"
-              : pathname.startsWith(item.href);
+              : item.href === "/admin"
+                ? pathname === "/admin"
+                : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

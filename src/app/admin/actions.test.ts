@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@/db/schema";
 
-const { mockDb, mockGetOrCreateUser, mockRevalidatePath, dbCalls } = vi.hoisted(
+const { mockDb, mockGetCurrentUser, mockRevalidatePath, dbCalls } = vi.hoisted(
   () => ({
     mockDb: {
       update: vi.fn(),
       insert: vi.fn(),
     },
-    mockGetOrCreateUser: vi.fn(),
+    mockGetCurrentUser: vi.fn(),
     mockRevalidatePath: vi.fn(),
     dbCalls: [] as Array<{ operation: string; value: unknown }>,
   }),
 );
 
 vi.mock("@/db", () => ({ db: mockDb }));
-vi.mock("@/lib/users", () => ({ getOrCreateUser: mockGetOrCreateUser }));
+vi.mock("@/lib/users", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
 
 import {
@@ -25,8 +25,10 @@ import {
 } from "@/app/admin/actions";
 
 const adminUser: User = {
-  clerkUserId: "admin_123",
+  id: "admin-id",
   email: "admin@example.com",
+  passwordHash: "hash",
+  sessionVersion: 0,
   accessStatus: "active",
   role: "admin",
   monthlyReviewLimit: null,
@@ -72,13 +74,13 @@ describe("admin actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     dbCalls.length = 0;
-    mockGetOrCreateUser.mockResolvedValue(adminUser);
+    mockGetCurrentUser.mockResolvedValue(adminUser);
     mockDb.update.mockImplementation(() => createUpdateBuilder());
     mockDb.insert.mockImplementation(() => createInsertBuilder());
   });
 
   it("rejects non-admin users before mutating data", async () => {
-    mockGetOrCreateUser.mockResolvedValue({ ...adminUser, role: "user" });
+    mockGetCurrentUser.mockResolvedValue({ ...adminUser, role: "user" });
 
     await expect(updateUserAccessStatus("user_123", "active")).rejects.toThrow(
       "No autorizado",

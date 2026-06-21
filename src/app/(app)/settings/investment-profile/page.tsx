@@ -13,16 +13,17 @@ import {
   getTemplateById,
   type ProfileTemplateId,
 } from "@/lib/investment-profile-templates";
-import { parseProfileFromEditing, getProfileEditorText } from "@/lib/investment-profile-text";
+import { parseProfileFromEditing, getProfileEditorText, hasSavedProfileEditorText } from "@/lib/investment-profile-text";
+import { listActiveProfileChipSections } from "@/lib/profile-chips";
 import { canEditInvestmentProfile } from "@/lib/access";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 import { redirect } from "next/navigation";
 
 async function applyTemplate(formData: FormData) {
   "use server";
 
   const templateId = formData.get("templateId") as ProfileTemplateId;
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || !canEditInvestmentProfile(user.accessStatus)) {
     throw new Error("No autorizado");
   }
@@ -35,7 +36,7 @@ async function applyTemplate(formData: FormData) {
   const [existing] = await db
     .select({ id: investmentProfiles.id })
     .from(investmentProfiles)
-    .where(eq(investmentProfiles.userId, user.clerkUserId))
+    .where(eq(investmentProfiles.userId, user.id))
     .limit(1);
 
   if (existing) {
@@ -46,10 +47,10 @@ async function applyTemplate(formData: FormData) {
         label: `Estrategia ${template.name}`,
         updatedAt: new Date(),
       })
-      .where(eq(investmentProfiles.userId, user.clerkUserId));
+      .where(eq(investmentProfiles.userId, user.id));
   } else {
     await db.insert(investmentProfiles).values({
-      userId: user.clerkUserId,
+      userId: user.id,
       label: `Estrategia ${template.name}`,
       rulesJson: template.rules,
     });
@@ -66,7 +67,7 @@ async function saveProfile(
 
   const profileText = formData.get("profileText");
 
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || !canEditInvestmentProfile(user.accessStatus)) {
     return { error: "No autorizado" };
   }
@@ -78,7 +79,7 @@ async function saveProfile(
   const [profile] = await db
     .select()
     .from(investmentProfiles)
-    .where(eq(investmentProfiles.userId, user.clerkUserId))
+    .where(eq(investmentProfiles.userId, user.id))
     .limit(1);
 
   const base =
@@ -102,10 +103,10 @@ async function saveProfile(
         rulesJson: rulesToSave,
         updatedAt: new Date(),
       })
-      .where(eq(investmentProfiles.userId, user.clerkUserId));
+      .where(eq(investmentProfiles.userId, user.id));
   } else {
     await db.insert(investmentProfiles).values({
-      userId: user.clerkUserId,
+      userId: user.id,
       rulesJson: rulesToSave,
     });
   }
@@ -115,13 +116,13 @@ async function saveProfile(
 }
 
 export default async function InvestmentProfilePage() {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
   const [profile] = await db
     .select()
     .from(investmentProfiles)
-    .where(eq(investmentProfiles.userId, user.clerkUserId))
+    .where(eq(investmentProfiles.userId, user.id))
     .limit(1);
 
   const canEdit = canEditInvestmentProfile(user.accessStatus);
@@ -129,7 +130,9 @@ export default async function InvestmentProfilePage() {
     (profile?.rulesJson as InvestmentRules | undefined) ??
     DEFAULT_INVESTMENT_PROFILE;
   const rules = storedRules;
+  const hasSavedText = hasSavedProfileEditorText(profile?.rulesJson);
   const editorText = getProfileEditorText(profile?.rulesJson, rules);
+  const chipSections = await listActiveProfileChipSections();
   const activeTemplateId = profile
     ? INVESTMENT_PROFILE_TEMPLATES.find((t) =>
         profile.label.includes(t.name),
@@ -137,11 +140,11 @@ export default async function InvestmentProfilePage() {
     : undefined;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <h1 className="text-2xl font-semibold">Perfil de inversión</h1>
       <p className="text-zinc-600 dark:text-zinc-400">
-        Elegí una plantilla como punto de partida. Podés personalizar los
-        detalles después de aplicarla.
+        Elegí una plantilla como punto de partida o armá tu perfil con los
+        fragmentos del panel. Guardalo antes de solicitar una review.
       </p>
 
       {profile && (
@@ -172,6 +175,7 @@ export default async function InvestmentProfilePage() {
               <ApplyTemplateForm
                 templateId={template.id}
                 isActive={activeTemplateId === template.id}
+                hasExistingText={editorText.trim().length > 0}
                 applyTemplate={applyTemplate}
               />
             ) : (
@@ -185,6 +189,8 @@ export default async function InvestmentProfilePage() {
         key={profile?.updatedAt?.toISOString() ?? "default"}
         initialText={editorText}
         canEdit={canEdit}
+        chipSections={chipSections}
+        hasSavedText={hasSavedText}
         saveProfile={saveProfile}
       />
     </div>

@@ -6,12 +6,11 @@ import type { ProfileTemplateId } from "@/lib/investment-profile-templates";
 type Props = {
   templateId: ProfileTemplateId;
   isActive: boolean;
+  hasExistingText: boolean;
   applyTemplate: (formData: FormData) => Promise<void>;
 };
 
-function SubmitButton({
-  isActive,
-}: Pick<Props, "isActive">) {
+function SubmitButton({ isActive }: Pick<Props, "isActive">) {
   const { pending } = useFormStatus();
 
   return (
@@ -32,10 +31,23 @@ function SubmitButton({
 export function ApplyTemplateForm({
   templateId,
   isActive,
+  hasExistingText,
   applyTemplate,
 }: Props) {
+  const handleSubmit = async (formData: FormData) => {
+    if (
+      hasExistingText &&
+      !window.confirm(
+        "Aplicar esta plantilla reemplazará el texto del perfil. ¿Continuar?",
+      )
+    ) {
+      return;
+    }
+    await applyTemplate(formData);
+  };
+
   return (
-    <form action={applyTemplate} className="mt-4">
+    <form action={handleSubmit} className="mt-4">
       <input type="hidden" name="templateId" value={templateId} />
       <SubmitButton isActive={isActive} />
     </form>
