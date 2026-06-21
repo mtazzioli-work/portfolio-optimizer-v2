@@ -33,4 +33,22 @@ describe("liquid-assets", () => {
     const text = getLiquidAssetsEditorText([]);
     expect(text).toContain("ACTIVOS LÍQUIDOS");
   });
+
+  it("serializes existing rows when editor notes are blank", () => {
+    const text = getLiquidAssetsEditorText([
+      {
+        category: "cash_usd",
+        label: "Efectivo ocioso",
+        amountUsd: 2500,
+      },
+      {
+        category: LIQUID_EDITOR_CATEGORY,
+        label: "editor",
+        amountUsd: 0,
+        notes: "   ",
+      },
+    ]);
+
+    expect(text).toContain("Efectivo ocioso: $2,500 USD");
+  });
 });

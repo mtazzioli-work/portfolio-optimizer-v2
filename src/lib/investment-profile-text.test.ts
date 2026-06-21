@@ -70,6 +70,61 @@ describe("investment-profile-text", () => {
     }
   });
 
+  it("falls back to base percentages when edited percentages are invalid", () => {
+    const edited = serialized.replace(
+      "Drawdown máximo del portfolio: 10%",
+      "Drawdown máximo del portfolio: abc",
+    );
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.maxPortfolioDrawdown).toBe(
+        DEFAULT_INVESTMENT_PROFILE.maxPortfolioDrawdown,
+      );
+    }
+  });
+
+  it("parses every allocation range and prohibited instruments", () => {
+    const edited = serialized
+      .replace("- Equity / ETFs: 50%–65%", "- Equity / ETFs: 50%–55%")
+      .replace(
+        "- Bonos IG / T-bills: 15%–20%",
+        "- Bonos IG / T-bills: 10%–15%",
+      )
+      .replace(
+        "- Commodities / Metales: 10%–20%",
+        "- Commodities / Metales: 1%–2%",
+      )
+      .replace("- Crypto: 0%–20%", "- Crypto: 3%–4%")
+      .replace(
+        "- Liquidez (efectivo/stablecoins): 10%–15%",
+        "- Liquidez (efectivo/stablecoins): 20%–25%",
+      )
+      .replace(
+        "INSTRUMENTOS PROHIBIDOS: short selling, High Yield bonds, options, leverage, margin",
+        "INSTRUMENTOS PROHIBIDOS: CFDs, opciones binarias",
+      );
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.targetAllocation).toEqual({
+        equityEtf: { min: 0.5, max: 0.55 },
+        bondsIG: { min: 0.1, max: 0.15 },
+        commodities: { min: 0.01, max: 0.02 },
+        crypto: { min: 0.03, max: 0.04 },
+        liquidity: { min: 0.2, max: 0.25 },
+      });
+      expect(parsed.rules.prohibitedInstruments).toEqual([
+        "CFDs",
+        "opciones binarias",
+      ]);
+    }
+  });
+
   it("parses technical rules from profile text", () => {
     const edited = serialized
       .replace("- Timeframe principal: monthly", "- Timeframe principal: weekly")
@@ -83,6 +138,40 @@ describe("investment-profile-text", () => {
     if (parsed.ok) {
       expect(parsed.rules.technicalRules.primaryTimeframe).toBe("weekly");
       expect(parsed.rules.technicalRules.trendRule).toBe("custom trend");
+    }
+  });
+
+  it("parses trigger and entry strategy technical rules", () => {
+    const edited = serialized
+      .replace(
+        "- Disparador de entrada: month-end candle close",
+        "- Disparador de entrada: cierre semanal",
+      )
+      .replace(
+        "- Estrategia de entrada: DCA by tranches 25%/25%/50% at limit orders",
+        "- Estrategia de entrada: entrada escalonada",
+      );
+
+    const parsed = parseProfileFromEditing(edited, DEFAULT_INVESTMENT_PROFILE);
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.technicalRules.trigger).toBe("cierre semanal");
+      expect(parsed.rules.technicalRules.entryStrategy).toBe("entrada escalonada");
+    }
+  });
+
+  it("defaults missing technical rules from the base profile", () => {
+    const parsed = parseProfileFromEditing(
+      "Riesgo: aggressive\nObjetivo: growth",
+      DEFAULT_INVESTMENT_PROFILE,
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.rules.technicalRules).toEqual(
+        DEFAULT_INVESTMENT_PROFILE.technicalRules,
+      );
     }
   });
 
@@ -115,5 +204,18 @@ describe("investment-profile-text", () => {
     );
     expect(hasSavedProfileEditorText(stored)).toBe(true);
     expect(toInvestmentRules(stored).riskProfile).toBe("moderate");
+  });
+
+  it("falls back when stored editor text is blank", () => {
+    const stored = {
+      ...DEFAULT_INVESTMENT_PROFILE,
+      profileEditorText: "   ",
+    };
+
+    expect(getProfileEditorText(stored, DEFAULT_INVESTMENT_PROFILE)).toBe(
+      serialized,
+    );
+    expect(hasSavedProfileEditorText(stored)).toBe(false);
+    expect(hasSavedProfileEditorText({})).toBe(false);
   });
 });
