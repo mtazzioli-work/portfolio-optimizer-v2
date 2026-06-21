@@ -13,7 +13,7 @@ import {
   type ReviewRulesSnapshot,
 } from "@/lib/reviews";
 import { userHasSavedInvestmentProfile } from "@/lib/investment-profile";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 
 const STATUS_LABELS: Record<string, string> = {
   done: "Completada",
@@ -28,16 +28,16 @@ export default async function ReviewDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const ctx = await getReviewDetailContext(id, user.clerkUserId);
+  const ctx = await getReviewDetailContext(id, user.id);
   if (!ctx) notFound();
 
   const { review, snapshotCapturedAt, snapshotTotalValueUsd, positions } = ctx;
   const rulesSnapshot = review.rulesSnapshot as ReviewRulesSnapshot | null;
   const hasInvestmentProfile = await userHasSavedInvestmentProfile(
-    user.clerkUserId,
+    user.id,
   );
 
   return (

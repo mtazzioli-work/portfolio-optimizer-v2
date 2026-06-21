@@ -4,10 +4,10 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { profileChips, profileChipSections } from "@/db/schema";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 
 async function requireAdmin() {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || user.role !== "admin") {
     throw new Error("No autorizado");
   }

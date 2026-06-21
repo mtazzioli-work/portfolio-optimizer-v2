@@ -22,6 +22,9 @@ import { analyzePortfolio } from "@/lib/market-data";
 import { getQuotaUsage } from "@/lib/quota";
 import { canRequestReview } from "@/lib/access";
 
+export const USER_FACING_REVIEW_ERROR =
+  "No se pudo completar el análisis. Intentá de nuevo más tarde.";
+
 export type ReviewRulesSnapshot = {
   investmentProfile: InvestmentRules;
   profileEditorText: string;
@@ -84,7 +87,7 @@ export async function requestReview(
     return { error: "No autorizado para solicitar reviews" };
   }
 
-  const ownership = await assertSnapshotOwnership(snapshotId, user.clerkUserId);
+  const ownership = await assertSnapshotOwnership(snapshotId, user.id);
   if (!ownership) {
     return { error: "Snapshot no encontrado" };
   }
@@ -119,7 +122,7 @@ export async function requestReview(
     }
   }
 
-  const storedProfile = await getStoredInvestmentProfile(user.clerkUserId);
+  const storedProfile = await getStoredInvestmentProfile(user.id);
   if (!storedProfile.hasSavedText) {
     return { error: INVESTMENT_PROFILE_REQUIRED_ERROR };
   }
@@ -141,7 +144,7 @@ export async function requestReview(
       .insert(reviews)
       .values({
         snapshotId,
-        userId: user.clerkUserId,
+        userId: user.id,
         status: "processing",
         claudeInvoked: false,
       })
@@ -156,7 +159,7 @@ export async function requestReview(
       .where(eq(positions.snapshotId, snapshotId));
 
     const investmentProfile = storedProfile.rules;
-    const liquidRows = await getLiquidAssetsForUser(user.clerkUserId);
+    const liquidRows = await getLiquidAssetsForUser(user.id);
     const liquidSummary = buildLiquidSummary(liquidRows);
 
     const symbols = [
@@ -200,15 +203,15 @@ export async function requestReview(
 
     return { reviewId };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    console.error("Review analysis failed:", error);
     await db
       .update(reviews)
       .set({
         status: "error",
-        errorMessage: message,
+        errorMessage: USER_FACING_REVIEW_ERROR,
       })
       .where(eq(reviews.id, reviewId));
-    return { error: message };
+    return { error: USER_FACING_REVIEW_ERROR };
   }
 }
 

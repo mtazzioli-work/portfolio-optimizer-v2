@@ -29,10 +29,10 @@ export function getBuenosAiresMonthRange(reference = new Date()): {
   return { start, end };
 }
 
-function monthReviewFilter(clerkUserId: string) {
+function monthReviewFilter(userId: string) {
   const { start, end } = getBuenosAiresMonthRange();
   return and(
-    eq(reviews.userId, clerkUserId),
+    eq(reviews.userId, userId),
     eq(reviews.claudeInvoked, true),
     gte(reviews.createdAt, start),
     lt(reviews.createdAt, end),
@@ -40,16 +40,16 @@ function monthReviewFilter(clerkUserId: string) {
 }
 
 export async function countClaudeReviewsThisMonth(
-  clerkUserId: string,
+  userId: string,
 ): Promise<number> {
   const [row] = await db
     .select({ total: count() })
     .from(reviews)
-    .where(monthReviewFilter(clerkUserId));
+    .where(monthReviewFilter(userId));
   return row?.total ?? 0;
 }
 
-export async function getMonthlyTokenUsage(clerkUserId: string): Promise<{
+export async function getMonthlyTokenUsage(userId: string): Promise<{
   totalInputTokens: number;
   totalOutputTokens: number;
   totalTokens: number;
@@ -63,7 +63,7 @@ export async function getMonthlyTokenUsage(clerkUserId: string): Promise<{
       totalCostUsd: sql<number>`coalesce(sum(${reviews.estimatedCostUsd}), 0)`,
     })
     .from(reviews)
-    .where(monthReviewFilter(clerkUserId));
+    .where(monthReviewFilter(userId));
 
   return {
     totalInputTokens: Number(row?.totalInputTokens ?? 0),
@@ -89,9 +89,9 @@ export async function getQuotaUsage(user: User): Promise<{
   totalTokens: number;
   totalCostUsd: number;
 }> {
-  const used = await countClaudeReviewsThisMonth(user.clerkUserId);
+  const used = await countClaudeReviewsThisMonth(user.id);
   const limit = await getEffectiveLimit(user);
-  const tokens = await getMonthlyTokenUsage(user.clerkUserId);
+  const tokens = await getMonthlyTokenUsage(user.id);
   return {
     used,
     limit,

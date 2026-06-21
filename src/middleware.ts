@@ -1,16 +1,37 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
 
-const isPublicRoute = createRouteMatcher([
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/webhooks/clerk(.*)",
-]);
+const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password"];
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (isPublicPath(pathname)) {
+    const response = NextResponse.next();
+    response.headers.set("x-pathname", pathname);
+    return response;
   }
-});
+
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const session = token ? await verifySessionToken(token) : null;
+
+  if (!session) {
+    const signInUrl = new URL("/sign-in", request.url);
+    signInUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  const response = NextResponse.next();
+  response.headers.set("x-pathname", pathname);
+  return response;
+}
 
 export const config = {
   matcher: [

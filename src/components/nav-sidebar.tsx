@@ -31,6 +31,14 @@ const NAV_ITEMS: NavItem[] = [
       accessStatus === "active" || accessStatus === "paused",
   },
   {
+    href: "/settings/password",
+    label: "Contraseña",
+    show: ({ accessStatus }) =>
+      accessStatus === "active" ||
+      accessStatus === "pending" ||
+      accessStatus === "paused",
+  },
+  {
     href: "/settings/investment-profile",
     label: "Perfil de inversión",
     show: ({ accessStatus }) =>

@@ -20,13 +20,32 @@ export const accessStatusEnum = pgEnum("access_status", [
 export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 
 export const users = pgTable("users", {
-  clerkUserId: text("clerk_user_id").primaryKey(),
-  email: text("email").notNull(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  sessionVersion: integer("session_version").notNull().default(0),
   accessStatus: accessStatusEnum("access_status").notNull().default("pending"),
   role: userRoleEnum("role").notNull().default("user"),
   monthlyReviewLimit: integer("monthly_review_limit"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const loginAttempts = pgTable("login_attempts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  ip: text("ip"),
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+});
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const appSettings = pgTable("app_settings", {
@@ -37,10 +56,10 @@ export const appSettings = pgTable("app_settings", {
 
 export const portfolios = pgTable("portfolios", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id")
+  userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.clerkUserId, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   currentSnapshotId: uuid("current_snapshot_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -79,9 +98,9 @@ export const reviews = pgTable("reviews", {
   snapshotId: uuid("snapshot_id")
     .notNull()
     .references(() => portfolioSnapshots.id, { onDelete: "cascade" }),
-  userId: text("user_id")
+  userId: uuid("user_id")
     .notNull()
-    .references(() => users.clerkUserId, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   claudeInvoked: boolean("claude_invoked").notNull().default(false),
   status: text("status").notNull().default("pending"), // pending | processing | done | error
   presentationVersion: integer("presentation_version").notNull().default(1),
@@ -101,10 +120,10 @@ export const REVIEW_PRESENTATION_VERSION = 2;
 
 export const investmentProfiles = pgTable("investment_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id")
+  userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.clerkUserId, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   label: text("label").notNull().default("My Investment Strategy"),
   rulesJson: jsonb("rules_json").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -113,9 +132,9 @@ export const investmentProfiles = pgTable("investment_profiles", {
 
 export const liquidAssets = pgTable("liquid_assets", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id")
+  userId: uuid("user_id")
     .notNull()
-    .references(() => users.clerkUserId, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   category: text("category").notNull(),
   label: text("label").notNull(),
   amountUsd: real("amount_usd").notNull(),

@@ -1,6 +1,6 @@
 import { getQuotaUsage } from "@/lib/quota";
 import { formatNumber, formatUsd } from "@/lib/review-amounts";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -10,7 +10,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
   const quota =

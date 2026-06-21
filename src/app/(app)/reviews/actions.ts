@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requestReview } from "@/lib/reviews";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 import { canRequestReview } from "@/lib/access";
 
 export async function requestReviewAction(
@@ -12,7 +12,7 @@ export async function requestReviewAction(
   error?: string;
   existingReviewId?: string;
 }> {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || !canRequestReview(user.accessStatus)) {
     return { error: "No autorizado" };
   }

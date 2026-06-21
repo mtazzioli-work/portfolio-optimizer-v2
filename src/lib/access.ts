@@ -94,3 +94,21 @@ export function shouldRedirectToDenied(
 ): boolean {
   return accessStatus === "denied" && !isDeniedPath(pathname);
 }
+
+/** Server-side redirect target when the user cannot access pathname, or null if allowed. */
+export function getAccessRedirectPath(
+  pathname: string,
+  accessStatus: AccessStatus,
+  role: UserRole,
+): string | null {
+  if (canAccessPath(pathname, accessStatus, role)) {
+    return null;
+  }
+  if (accessStatus === "denied") {
+    return "/denied";
+  }
+  if (accessStatus === "pending") {
+    return "/waiting";
+  }
+  return "/";
+}

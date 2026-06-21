@@ -2,6 +2,7 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import {
+  resetUserPassword,
   updateMonthlyReviewLimitDefault,
   updateUserAccessStatus,
   updateUserMonthlyReviewLimitFromForm,
@@ -30,9 +31,9 @@ export default async function AdminPage({
 
   const rows = await Promise.all(
     displayed.map(async (u) => {
-      const used = await countClaudeReviewsThisMonth(u.clerkUserId);
+      const used = await countClaudeReviewsThisMonth(u.id);
       const limit = await getEffectiveLimit(u);
-      const tokens = await getMonthlyTokenUsage(u.clerkUserId);
+      const tokens = await getMonthlyTokenUsage(u.id);
       return { user: u, used, limit, tokens };
     }),
   );
@@ -94,7 +95,7 @@ export default async function AdminPage({
             <tbody>
               {rows.map(({ user: u, used, limit, tokens }) => (
                 <tr
-                  key={u.clerkUserId}
+                  key={u.id}
                   className="border-t border-zinc-100 dark:border-zinc-800"
                 >
                   <td className="px-3 py-2">{u.email}</td>
@@ -120,7 +121,7 @@ export default async function AdminPage({
                           <form
                             action={updateUserAccessStatus.bind(
                               null,
-                              u.clerkUserId,
+                              u.id,
                               "active",
                             )}
                           >
@@ -134,7 +135,7 @@ export default async function AdminPage({
                           <form
                             action={updateUserAccessStatus.bind(
                               null,
-                              u.clerkUserId,
+                              u.id,
                               "denied",
                             )}
                           >
@@ -151,7 +152,7 @@ export default async function AdminPage({
                         <form
                           action={updateUserAccessStatus.bind(
                             null,
-                            u.clerkUserId,
+                            u.id,
                             "paused",
                           )}
                         >
@@ -167,7 +168,7 @@ export default async function AdminPage({
                         <form
                           action={updateUserAccessStatus.bind(
                             null,
-                            u.clerkUserId,
+                            u.id,
                             "active",
                           )}
                         >
@@ -183,7 +184,7 @@ export default async function AdminPage({
                         <form
                           action={updateUserAccessStatus.bind(
                             null,
-                            u.clerkUserId,
+                            u.id,
                             "active",
                           )}
                         >
@@ -197,9 +198,20 @@ export default async function AdminPage({
                       )}
                     </div>
                     <form
+                      action={resetUserPassword.bind(null, u.id)}
+                      className="mt-2"
+                    >
+                      <button
+                        type="submit"
+                        className="rounded bg-zinc-700 px-2 py-0.5 text-xs text-white"
+                      >
+                        Resetear contraseña
+                      </button>
+                    </form>
+                    <form
                       action={updateUserMonthlyReviewLimitFromForm.bind(
                         null,
-                        u.clerkUserId,
+                        u.id,
                       )}
                       className="mt-2 flex items-center gap-1"
                     >

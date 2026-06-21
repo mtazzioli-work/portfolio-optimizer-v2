@@ -11,7 +11,7 @@ import {
   getCurrentSnapshotReviewState,
   listReviewsForUser,
 } from "@/lib/reviews";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 
 const STATUS_LABELS: Record<string, string> = {
   done: "Completada",
@@ -21,16 +21,16 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function ReviewsPage() {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
-  const reviews = await listReviewsForUser(user.clerkUserId);
-  const snapshotState = await getCurrentSnapshotReviewState(user.clerkUserId);
+  const reviews = await listReviewsForUser(user.id);
+  const snapshotState = await getCurrentSnapshotReviewState(user.id);
   const quota = canRequestReview(user.accessStatus)
     ? await getQuotaUsage(user)
     : null;
   const hasInvestmentProfile = await userHasSavedInvestmentProfile(
-    user.clerkUserId,
+    user.id,
   );
 
   return (

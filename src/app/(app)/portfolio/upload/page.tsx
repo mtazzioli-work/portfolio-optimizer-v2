@@ -14,9 +14,10 @@ import {
   upsertLiquidAssets,
 } from "@/lib/liquid-assets";
 import { saveSnapshot } from "@/lib/snapshots";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 import { userHasSavedInvestmentProfile } from "@/lib/investment-profile";
 import {
+  assertCsvTextSize,
   assertPositionCount,
   validateCsvFile,
 } from "@/lib/upload-validation";
@@ -26,7 +27,7 @@ async function uploadSnapshotCsv(
 ): Promise<{ error?: string; count?: number; snapshotId?: string }> {
   "use server";
 
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || !canUploadSnapshots(user.accessStatus)) {
     return { error: "No autorizado" };
   }
@@ -41,7 +42,7 @@ async function uploadSnapshotCsv(
     const text = await file.text();
     const rows = parseCSV(text);
     assertPositionCount(rows.length);
-    const snapshotId = await saveSnapshot(user.clerkUserId, rows, "csv");
+    const snapshotId = await saveSnapshot(user.id, rows, "csv");
 
     revalidatePath("/portfolio/upload");
     revalidatePath("/");
@@ -61,7 +62,7 @@ async function uploadSnapshotText(
 ): Promise<{ error?: string; count?: number; snapshotId?: string }> {
   "use server";
 
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || !canUploadSnapshots(user.accessStatus)) {
     return { error: "No autorizado" };
   }
@@ -72,9 +73,10 @@ async function uploadSnapshotText(
   }
 
   try {
+    assertCsvTextSize(csvText);
     const rows = parseCSV(csvText);
     assertPositionCount(rows.length);
-    const snapshotId = await saveSnapshot(user.clerkUserId, rows, "text");
+    const snapshotId = await saveSnapshot(user.id, rows, "text");
     revalidatePath("/portfolio/upload");
     revalidatePath("/");
     revalidatePath("/history");
@@ -93,7 +95,7 @@ async function saveLiquidAssets(
 ): Promise<{ error?: string; success?: boolean }> {
   "use server";
 
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user || !canEditLiquidAssets(user.accessStatus)) {
     return { error: "No autorizado" };
   }
@@ -103,7 +105,7 @@ async function saveLiquidAssets(
     return { error: "El texto de activos líquidos no puede estar vacío." };
   }
 
-  const result = await upsertLiquidAssets(user.clerkUserId, liquidAssetsText);
+  const result = await upsertLiquidAssets(user.id, liquidAssetsText);
   if (result.error) {
     return { error: result.error };
   }
@@ -113,18 +115,18 @@ async function saveLiquidAssets(
 }
 
 export default async function PortfolioUploadPage() {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
   if (!canUploadSnapshots(user.accessStatus)) {
     redirect("/");
   }
 
-  const rows = await getLiquidAssetsForUser(user.clerkUserId);
+  const rows = await getLiquidAssetsForUser(user.id);
   const editorText = getLiquidAssetsEditorText(rows);
   const canEdit = canEditLiquidAssets(user.accessStatus);
   const hasInvestmentProfile = await userHasSavedInvestmentProfile(
-    user.clerkUserId,
+    user.id,
   );
 
   return (

@@ -1,9 +1,9 @@
-import { SignUp } from "@clerk/nextjs";
+import { SignUpForm } from "@/components/auth-forms";
 
 export default function SignUpPage() {
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+      <SignUpForm />
     </div>
   );
 }

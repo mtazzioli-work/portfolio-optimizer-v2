@@ -21,6 +21,15 @@ export function validateCsvFile(file: File): void {
   }
 }
 
+export function assertCsvTextSize(text: string): void {
+  const bytes = Buffer.byteLength(text, "utf8");
+  if (bytes > MAX_CSV_BYTES) {
+    throw new Error(
+      `El contenido CSV es demasiado grande (máx. ${MAX_CSV_BYTES / 1024 / 1024} MB)`,
+    );
+  }
+}
+
 export function assertPositionCount(count: number): void {
   if (count === 0) {
     throw new Error("No se encontraron posiciones en el CSV");

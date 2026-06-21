@@ -1,0 +1,12 @@
+---
+description: Run security and test coverage checks before every git commit
+alwaysApply: true
+---
+
+Before staging or running `git commit`, run `npm run precommit` and fix all errors.
+
+- `npm run precommit` runs security checks and tests with **80% minimum coverage** on `src/lib/**`.
+- Never commit `.env` or `.env.local` files.
+- Never bypass the pre-commit hook with `--no-verify` unless the user explicitly asks.
+- When adding or changing code in `src/lib/**`, add or update unit/integration tests to keep coverage above 80%.
+- For changes to auth, middleware, API routes, admin actions, or `next.config.ts`, mention that a manual security review is recommended before pushing.

@@ -1,16 +1,16 @@
-import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminSubnav } from "@/components/admin/admin-subnav";
+import { LogoutButton } from "@/components/logout-button";
 import { NavSidebar } from "@/components/nav-sidebar";
-import { getOrCreateUser } from "@/lib/users";
+import { getCurrentUser } from "@/lib/users";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getOrCreateUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
   if (user.role !== "admin") redirect("/");
 
@@ -23,7 +23,7 @@ export default async function AdminLayout({
             <span className="font-semibold">Admin</span>
             <AdminSubnav />
           </div>
-          <UserButton />
+          <LogoutButton email={user.email} />
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>
