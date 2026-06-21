@@ -21,7 +21,8 @@ vi.mock("@/db", () => ({
         where: () => chain,
         orderBy: () => chain,
         limit: () => Promise.resolve(result),
-        then: (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+        then: (resolve: (v: unknown) => void) =>
+          Promise.resolve(result).then(resolve),
       };
       return chain;
     }),
@@ -38,7 +39,9 @@ vi.mock("@/db", () => ({
   },
 }));
 
-vi.mock("@/lib/quota", () => ({ getQuotaUsage: (...args: unknown[]) => mockGetQuotaUsage(...args) }));
+vi.mock("@/lib/quota", () => ({
+  getQuotaUsage: (...args: unknown[]) => mockGetQuotaUsage(...args),
+}));
 vi.mock("@/lib/investment-profile", () => ({
   getStoredInvestmentProfile: (...args: unknown[]) =>
     mockGetStoredInvestmentProfile(...args),
@@ -123,5 +126,204 @@ describe("integration: requestReview", () => {
     const { requestReview } = await import("@/lib/reviews");
     const result = await requestReview(activeUser, "snap-1");
     expect(result.error).toContain("perfil de inversión");
+  });
+
+  it("rejects snapshots that already have a successful review", async () => {
+    selectResults.push(
+      [{ portfolioId: "p1", ownerId: "user_1" }],
+      [{ id: "done-review", status: "done" }],
+    );
+
+    const { requestReview } = await import("@/lib/reviews");
+    const result = await requestReview(activeUser, "snap-1");
+
+    expect(result).toEqual({
+      error: "Este snapshot ya tiene una review exitosa",
+      existingReviewId: "done-review",
+    });
+  });
+
+  it("rejects snapshots with processing reviews", async () => {
+    selectResults.push(
+      [{ portfolioId: "p1", ownerId: "user_1" }],
+      [],
+      [{ id: "processing-review", status: "processing" }],
+    );
+
+    const { requestReview } = await import("@/lib/reviews");
+    const result = await requestReview(activeUser, "snap-1");
+
+    expect(result.error).toContain("review en progreso");
+  });
+
+  it("rejects requests when monthly quota is exhausted", async () => {
+    selectResults.push(
+      [{ portfolioId: "p1", ownerId: "user_1" }],
+      [],
+      [],
+      [],
+    );
+    mockGetQuotaUsage.mockResolvedValueOnce({ remaining: 0 });
+
+    const { requestReview } = await import("@/lib/reviews");
+    const result = await requestReview(activeUser, "snap-1");
+
+    expect(result.error).toContain("Cuota mensual");
+  });
+
+  it("creates and completes a new review", async () => {
+    selectResults.push(
+      [{ portfolioId: "p1", ownerId: "user_1" }],
+      [],
+      [],
+      [],
+      [
+        {
+          symbol: "VTI",
+          positionValue: 1000,
+          position: 3,
+          markPrice: 333.33,
+          costBasisPrice: 300,
+        },
+      ],
+    );
+
+    const { requestReview } = await import("@/lib/reviews");
+    const result = await requestReview(activeUser, "snap-1");
+
+    expect(result).toEqual({ reviewId: "review-1" });
+    expect(mockAnalyzePortfolio).toHaveBeenCalledWith(["VTI"]);
+    expect(mockRunClaudeAnalysis).toHaveBeenCalledWith(
+      expect.stringContaining("VTI"),
+    );
+  });
+
+  it("retries failed reviews without consuming quota", async () => {
+    selectResults.push(
+      [{ portfolioId: "p1", ownerId: "user_1" }],
+      [],
+      [],
+      [{ id: "failed-review", status: "error" }],
+      [{ symbol: "VTI", positionValue: 1000 }],
+    );
+
+    const { requestReview } = await import("@/lib/reviews");
+    const result = await requestReview(activeUser, "snap-1");
+
+    expect(result).toEqual({ reviewId: "failed-review" });
+    expect(mockGetQuotaUsage).not.toHaveBeenCalled();
+  });
+
+  it("marks the review as error when analysis fails", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    selectResults.push(
+      [{ portfolioId: "p1", ownerId: "user_1" }],
+      [],
+      [],
+      [],
+      [{ symbol: "VTI", positionValue: 1000 }],
+    );
+    mockRunClaudeAnalysis.mockRejectedValueOnce(new Error("model down"));
+
+    const { USER_FACING_REVIEW_ERROR, requestReview } = await import(
+      "@/lib/reviews"
+    );
+    const result = await requestReview(activeUser, "snap-1");
+
+    expect(result).toEqual({ error: USER_FACING_REVIEW_ERROR });
+    expect(consoleError).toHaveBeenCalledWith(
+      "Review analysis failed:",
+      expect.any(Error),
+    );
+    consoleError.mockRestore();
+  });
+
+  it("loads review detail context for a user's review", async () => {
+    const capturedAt = new Date("2026-01-01T00:00:00Z");
+    selectResults.push(
+      [{ id: "review-1", userId: "user_1", snapshotId: "snap-1" }],
+      [{ capturedAt, totalValueUsd: 1234 }],
+      [{ symbol: "VTI", positionValue: 1000 }],
+    );
+
+    const { getReviewDetailContext } = await import("@/lib/reviews");
+    const context = await getReviewDetailContext("review-1", "user_1");
+
+    expect(context?.snapshotCapturedAt).toBe(capturedAt);
+    expect(context?.snapshotTotalValueUsd).toBe(1234);
+    expect(context?.positions).toEqual([{ symbol: "VTI", positionValue: 1000 }]);
+  });
+
+  it("returns null review detail context when the review is not visible", async () => {
+    selectResults.push([]);
+
+    const { getReviewDetailContext } = await import("@/lib/reviews");
+    await expect(
+      getReviewDetailContext("review-1", "user_1"),
+    ).resolves.toBeNull();
+  });
+
+  it("lists reviews for a user", async () => {
+    const createdAt = new Date("2026-01-01T00:00:00Z");
+    selectResults.push([
+      {
+        id: "review-1",
+        status: "done",
+        createdAt,
+        snapshotId: "snap-1",
+        capturedAt: createdAt,
+        totalValueUsd: 1234,
+        totalTokens: 20,
+        estimatedCostUsd: 0.01,
+        presentationVersion: 2,
+      },
+    ]);
+
+    const { listReviewsForUser } = await import("@/lib/reviews");
+    await expect(listReviewsForUser("user_1")).resolves.toEqual(
+      selectResults[0],
+    );
+  });
+
+  it("loads current snapshot review state variants", async () => {
+    selectResults.push([]);
+    const { getCurrentSnapshotReviewState } = await import("@/lib/reviews");
+    await expect(getCurrentSnapshotReviewState("user_1")).resolves.toBeNull();
+
+    selectCall = 0;
+    selectResults.length = 0;
+    selectResults.push([{ currentSnapshotId: null }]);
+    await expect(getCurrentSnapshotReviewState("user_1")).resolves.toEqual({
+      currentSnapshotId: null,
+      doneReview: null,
+      failedReview: null,
+    });
+
+    selectCall = 0;
+    selectResults.length = 0;
+    selectResults.push(
+      [{ currentSnapshotId: "snap-1" }],
+      [],
+      [{ id: "failed-review", status: "error" }],
+    );
+    await expect(getCurrentSnapshotReviewState("user_1")).resolves.toEqual({
+      currentSnapshotId: "snap-1",
+      doneReview: null,
+      failedReview: { id: "failed-review", status: "error" },
+    });
+
+    selectCall = 0;
+    selectResults.length = 0;
+    selectResults.push(
+      [{ currentSnapshotId: "snap-1" }],
+      [{ id: "done-review", status: "done" }],
+    );
+    await expect(getCurrentSnapshotReviewState("user_1")).resolves.toEqual({
+      currentSnapshotId: "snap-1",
+      doneReview: { id: "done-review", status: "done" },
+      failedReview: null,
+    });
   });
 });

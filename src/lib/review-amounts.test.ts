@@ -4,6 +4,8 @@ import {
   computeDestinationAmount,
   computeTotalPortfolioUsd,
   computeTrancheAmount,
+  formatNumber,
+  formatUsd,
   parseTranchePctsFromString,
   resolveEntryTranches,
   roundingResidue,
@@ -20,6 +22,9 @@ describe("review-amounts", () => {
   };
 
   it("formats and rounds amounts", () => {
+    expect(formatUsd(1234.5, { decimals: 2 })).toContain("1,234.50");
+    expect(formatUsd(1234.5, { decimals: 2 })).toContain("USD");
+    expect(formatNumber(1000000)).toBe("1,000,000");
     expect(computeDestinationAmount(10000, 25)).toBe(2500);
     expect(computeTrancheAmount(1000, 50)).toBe(500);
     expect(totalLiquidAssetsUsd(liquid)).toBe(6000);

@@ -60,4 +60,17 @@ describe("password reset tokens", () => {
     const { findValidPasswordResetUserId } = await import("@/lib/password-reset");
     await expect(findValidPasswordResetUserId("token")).resolves.toBeNull();
   });
+
+  it("consumes a reset token by deleting its hash", async () => {
+    const where = vi.fn().mockResolvedValue(undefined);
+    mockDelete.mockReturnValue({ where });
+
+    const { consumePasswordResetToken, hashPasswordResetToken } = await import(
+      "@/lib/password-reset"
+    );
+    await consumePasswordResetToken("token");
+
+    expect(where).toHaveBeenCalledOnce();
+    expect(hashPasswordResetToken("token")).toHaveLength(64);
+  });
 });
