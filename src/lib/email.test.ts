@@ -1,45 +1,51 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockSend = vi.fn();
-const mockSelect = vi.fn();
-
-vi.mock("resend", () => ({
-  Resend: vi.fn().mockImplementation(() => ({
-    emails: { send: mockSend },
-  })),
-}));
+const mockFetch = vi.fn();
 
 vi.mock("@/db", () => ({
   db: {
-    select: mockSelect,
+    select: vi.fn(),
   },
 }));
 
 describe("email notifications", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    process.env.RESEND_API_KEY = "re_test";
-    mockSend.mockResolvedValue({ data: { id: "email-1" }, error: null });
-    mockSelect.mockReturnValue({
+    vi.stubGlobal("fetch", mockFetch);
+    process.env.BREVO_API_KEY = "xkeysib-test-api-key";
+    process.env.EMAIL_FROM =
+      "Portfolio Optimizer <marcelo.h.tazzioli@gmail.com>";
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ messageId: "email-1" }),
+    });
+
+    const { db } = await import("@/db");
+    vi.mocked(db.select).mockReturnValue({
       from: () => ({
         where: () =>
           Promise.resolve([{ email: "admin@example.com" }]),
       }),
-    });
+    } as never);
   });
 
   it("notifies admins on new user", async () => {
     const { notifyAdminsNewUser } = await import("@/lib/email");
     await notifyAdminsNewUser({ email: "a@b.com", userId: "user-1" });
-    expect(mockSend).toHaveBeenCalledOnce();
-    expect(mockSend.mock.calls[0][0].html).toContain("user-1");
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, init] = mockFetch.mock.calls[0];
+    const body = JSON.parse(String(init?.body));
+    expect(body.htmlContent).toContain("user-1");
+    expect(body.to).toEqual([{ email: "admin@example.com" }]);
+    expect(init?.headers?.["api-key"]).toBe("xkeysib-test-api-key");
   });
 
-  it("skips when resend is not configured", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("skips when brevo api key is not configured", async () => {
+    delete process.env.BREVO_API_KEY;
     const { notifyAdminsNewUser } = await import("@/lib/email");
     await notifyAdminsNewUser({ email: "a@b.com", userId: "user-1" });
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("sends temporary password email", async () => {
@@ -48,8 +54,9 @@ describe("email notifications", () => {
       email: "user@example.com",
       password: "TempPass123!",
     });
-    expect(mockSend).toHaveBeenCalledOnce();
-    expect(mockSend.mock.calls[0][0].to).toBe("user@example.com");
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body.to).toEqual([{ email: "user@example.com" }]);
   });
 
   it("sends password reset email", async () => {
@@ -58,18 +65,16 @@ describe("email notifications", () => {
       email: "user@example.com",
       resetUrl: "http://localhost:3000/reset-password?token=abc",
     });
-    expect(mockSend).toHaveBeenCalledOnce();
-    expect(mockSend.mock.calls[0][0].html).toContain("reset-password?token=abc");
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(body.htmlContent).toContain("reset-password?token=abc");
   });
 
-  it("throws when resend returns an error", async () => {
-    mockSend.mockResolvedValue({
-      data: null,
-      error: {
-        message: "API key is invalid",
-        statusCode: 401,
-        name: "validation_error",
-      },
+  it("throws when brevo api returns an error", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => "Unauthorized",
     });
     const { sendPasswordResetEmail } = await import("@/lib/email");
     await expect(
@@ -77,6 +82,6 @@ describe("email notifications", () => {
         email: "user@example.com",
         resetUrl: "http://localhost:3000/reset-password?token=abc",
       }),
-    ).rejects.toThrow("API key is invalid");
+    ).rejects.toThrow("Brevo API error 401");
   });
 });

@@ -1,3 +1,9 @@
+import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
+import { hasReviewsListSeen } from "@/lib/onboarding-cookie";
+import {
+  getOnboardingProgress,
+  shouldShowOnboardingChecklist,
+} from "@/lib/onboarding";
 import { getQuotaUsage } from "@/lib/quota";
 import { formatNumber, formatUsd } from "@/lib/review-amounts";
 import { getCurrentUser } from "@/lib/users";
@@ -18,9 +24,23 @@ export default async function DashboardPage() {
       ? await getQuotaUsage(user)
       : null;
 
+  const showOnboarding = shouldShowOnboardingChecklist(user.accessStatus);
+  const onboarding = showOnboarding
+    ? await getOnboardingProgress(
+        user.id,
+        user.accessStatus,
+        await hasReviewsListSeen(),
+      )
+    : null;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold">Panel</h1>
+
+      {onboarding && !onboarding.isComplete ? (
+        <OnboardingChecklist steps={onboarding.steps} />
+      ) : null}
+
       <p className="text-zinc-600 dark:text-zinc-400">
         Bienvenido. Acá verás el resumen de tu portfolio cuando subas snapshots.
       </p>
@@ -38,15 +58,16 @@ export default async function DashboardPage() {
         )}
         {user.accessStatus === "paused" && (
           <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
-            Tu cuenta está suspendida temporalmente. Podés ver el historial y
-            editar configuración, pero no subir snapshots ni solicitar reviews.
+            Tu cuenta está suspendida temporalmente. Podés ver revisiones y
+            editar configuración, pero no subir snapshots ni solicitar nuevas
+            revisiones.
           </p>
         )}
       </section>
 
       {quota && (
         <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <h2 className="text-sm font-medium text-zinc-500">Cuota de reviews</h2>
+          <h2 className="text-sm font-medium text-zinc-500">Cuota de revisiones</h2>
           <p className="mt-1 text-lg">
             {quota.used} / {quota.limit} usadas este mes
           </p>

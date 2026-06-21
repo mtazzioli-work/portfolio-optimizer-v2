@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { RequestReviewButton } from "@/components/reviews/request-review-button";
+import { ReviewsListSeenMarker } from "@/components/reviews/reviews-list-seen-marker";
 import { requestReviewAction } from "@/app/(app)/reviews/actions";
 import { canRequestReview } from "@/lib/access";
 import { getQuotaUsage } from "@/lib/quota";
@@ -35,10 +36,11 @@ export default async function ReviewsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <ReviewsListSeenMarker />
       <div>
-        <h1 className="text-2xl font-semibold">Reviews</h1>
+        <h1 className="text-2xl font-semibold">Revisiones</h1>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          Revisión con IA sobre tus snapshots. Cada review exitosa consume 1
+          Revisión con IA sobre tus snapshots. Cada revisión exitosa consume 1
           unidad de tu cuota mensual.
         </p>
       </div>

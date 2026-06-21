@@ -52,7 +52,7 @@ export function LiquidAssetsEditor({
         <h2 className="font-medium">Activos líquidos</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Declará efectivo, stablecoins, crypto fuera del broker e inmuebles para
-          contexto de asignación en tus reviews. Podés actualizarlos
+          contexto de asignación en tus revisiones. Podés actualizarlos
           independientemente del snapshot.
         </p>
       </div>

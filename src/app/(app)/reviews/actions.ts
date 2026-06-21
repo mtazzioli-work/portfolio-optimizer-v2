@@ -1,9 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { canRequestReview } from "@/lib/access";
+import { markReviewsListSeen } from "@/lib/onboarding-cookie";
 import { requestReview } from "@/lib/reviews";
 import { getCurrentUser } from "@/lib/users";
-import { canRequestReview } from "@/lib/access";
+
+export async function markReviewsListSeenAction(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  await markReviewsListSeen();
+  revalidatePath("/");
+}
 
 export async function requestReviewAction(
   snapshotId: string,

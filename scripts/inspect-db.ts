@@ -52,7 +52,7 @@ async function main() {
     console.log(`  ${c.table_name}.${c.column_name}: ${c.data_type}`);
   }
 
-  const users = await sql`SELECT clerk_user_id, email, role, access_status FROM users`;
+  const users = await sql`SELECT id, email, role, access_status FROM users`;
   console.log("\nusers rows:", users.length);
   for (const u of users) {
     console.log(`  ${u.email} (${u.role}, ${u.access_status})`);

@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
-  { href: "/admin", label: "Usuarios" },
-  { href: "/admin/profile-chips", label: "Chips de perfil" },
+  { href: "/admin", label: "Administración de usuarios" },
+  { href: "/admin/profile-chips", label: "Chips de perfil de inversión" },
 ] as const;
 
 export function AdminSubnav() {

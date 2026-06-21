@@ -8,7 +8,7 @@ Multi-usuario: un **Portfolio** por persona, **Snapshots** en el tiempo y **Revi
 - Auth propia (email/contraseña, sesión JWT en cookie)
 - Neon Postgres + Drizzle ORM
 - Anthropic (reviews)
-- Resend (emails a admins)
+- Brevo API (emails transaccionales)
 
 ## Setup
 
@@ -24,7 +24,7 @@ npm install
 cp .env.example .env.local
 ```
 
-3. Completar `.env.local` (`AUTH_SECRET`, `DATABASE_URL`, `BOOTSTRAP_ADMIN_EMAIL`, etc.).
+3. Completar `.env.local` (`AUTH_SECRET`, `DATABASE_URL`, `BOOTSTRAP_ADMIN_EMAIL`, `BREVO_API_KEY`, `EMAIL_FROM`, etc.).
 
 4. Aplicar schema a Neon:
 
