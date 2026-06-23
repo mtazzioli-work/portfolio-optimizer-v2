@@ -3,16 +3,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@/db/schema";
 import { DEFAULT_INVESTMENT_PROFILE } from "@/lib/default-investment-profile";
 
-const { mockDb, mockGetOrCreateUser, mockRedirect } = vi.hoisted(() => ({
+const {
+  mockDb,
+  mockGetCurrentUser,
+  mockListActiveProfileChipSections,
+  mockRedirect,
+} = vi.hoisted(() => ({
   mockDb: {
     select: vi.fn(),
   },
-  mockGetOrCreateUser: vi.fn(),
+  mockGetCurrentUser: vi.fn(),
+  mockListActiveProfileChipSections: vi.fn(),
   mockRedirect: vi.fn(),
 }));
 
 vi.mock("@/db", () => ({ db: mockDb }));
-vi.mock("@/lib/users", () => ({ getOrCreateUser: mockGetOrCreateUser }));
+vi.mock("@/lib/users", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/profile-chips", () => ({
+  listActiveProfileChipSections: mockListActiveProfileChipSections,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: mockRedirect }));
 vi.mock("@/components/settings/apply-template-form", () => ({
@@ -49,6 +58,7 @@ vi.mock("@/components/settings/investment-profile-editor", () => ({
 import InvestmentProfilePage from "@/app/(app)/settings/investment-profile/page";
 
 const user: User = {
+  id: "app_user_123",
   clerkUserId: "user_123",
   email: "user@example.com",
   accessStatus: "active",
@@ -76,12 +86,13 @@ describe("InvestmentProfilePage", () => {
     mockRedirect.mockImplementation((path: string) => {
       throw new Error(`redirect:${path}`);
     });
-    mockGetOrCreateUser.mockResolvedValue(user);
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockListActiveProfileChipSections.mockResolvedValue([]);
     mockProfileRows([]);
   });
 
   it("redirects anonymous visitors to sign-in", async () => {
-    mockGetOrCreateUser.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(null);
 
     await expect(InvestmentProfilePage()).rejects.toThrow("redirect:/sign-in");
   });
@@ -130,7 +141,7 @@ describe("InvestmentProfilePage", () => {
   });
 
   it("renders read-only template cards and editor for denied users", async () => {
-    mockGetOrCreateUser.mockResolvedValue({ ...user, accessStatus: "denied" });
+    mockGetCurrentUser.mockResolvedValue({ ...user, accessStatus: "denied" });
 
     render(await InvestmentProfilePage());
 

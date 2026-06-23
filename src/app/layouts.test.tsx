@@ -3,15 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@/db/schema";
 
-const { mockClerkProvider, mockGetOrCreateUser, mockRedirect } = vi.hoisted(() => ({
-  mockClerkProvider: vi.fn(({ children }: { children: React.ReactNode }) => children),
-  mockGetOrCreateUser: vi.fn(),
+const { mockGetCurrentUser, mockHeaders, mockRedirect, mockUsePathname } = vi.hoisted(() => ({
+  mockGetCurrentUser: vi.fn(),
+  mockHeaders: vi.fn(),
   mockRedirect: vi.fn(),
-}));
-
-vi.mock("@clerk/nextjs", () => ({
-  ClerkProvider: mockClerkProvider,
-  UserButton: () => <div data-testid="user-button" />,
+  mockUsePathname: vi.fn(),
 }));
 
 vi.mock("next/font/google", () => ({
@@ -31,9 +27,14 @@ vi.mock("next/link", () => ({
 
 vi.mock("next/navigation", () => ({
   redirect: mockRedirect,
+  usePathname: mockUsePathname,
 }));
 
-vi.mock("@/lib/users", () => ({ getOrCreateUser: mockGetOrCreateUser }));
+vi.mock("next/headers", () => ({
+  headers: mockHeaders,
+}));
+
+vi.mock("@/lib/users", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/components/access-guard", () => ({
   AccessGuard: ({
     children,
@@ -48,12 +49,18 @@ vi.mock("@/components/nav-sidebar", () => ({
     <nav data-role={role} data-status={accessStatus} />
   ),
 }));
+vi.mock("@/components/user-menu", () => ({
+  UserMenu: ({ email }: { email: string }) => (
+    <div data-email={email} data-testid="user-menu" />
+  ),
+}));
 
 import AppLayout from "@/app/(app)/layout";
 import AdminLayout from "@/app/admin/layout";
 import RootLayout, { metadata } from "@/app/layout";
 
 const user: User = {
+  id: "app_user_123",
   clerkUserId: "user_123",
   email: "user@example.com",
   accessStatus: "active",
@@ -69,7 +76,9 @@ describe("layouts", () => {
     mockRedirect.mockImplementation((path: string) => {
       throw new Error(`redirect:${path}`);
     });
-    mockGetOrCreateUser.mockResolvedValue(user);
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockHeaders.mockResolvedValue(new Headers({ "x-pathname": "/" }));
+    mockUsePathname.mockReturnValue("/admin");
   });
 
   it("exports app metadata", () => {
@@ -79,21 +88,20 @@ describe("layouts", () => {
     });
   });
 
-  it("wraps the application in Clerk and renders the disclaimer footer", () => {
+  it("renders the application shell and disclaimer footer", () => {
     const markup = renderToStaticMarkup(
       <RootLayout>
         <main>Root child</main>
       </RootLayout>,
     );
 
-    expect(mockClerkProvider).toHaveBeenCalledOnce();
-    expect(markup).toContain('lang="es"');
+    expect(markup).toContain('lang="es-419"');
     expect(markup).toContain("Root child");
     expect(markup).toContain("No constituye asesoramiento financiero");
   });
 
   it("redirects app layout visitors without a user to sign-in", async () => {
-    mockGetOrCreateUser.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(null);
 
     await expect(
       AppLayout({ children: <p>Protected child</p> }),
@@ -104,7 +112,10 @@ describe("layouts", () => {
     render(await AppLayout({ children: <p>Protected child</p> }));
 
     expect(screen.getByText("Protected child")).toBeInTheDocument();
-    expect(screen.getByTestId("user-button")).toBeInTheDocument();
+    expect(screen.getByTestId("user-menu")).toHaveAttribute(
+      "data-email",
+      user.email,
+    );
     expect(screen.getByRole("navigation")).toHaveAttribute("data-status", "active");
   });
 
@@ -115,7 +126,7 @@ describe("layouts", () => {
   });
 
   it("redirects anonymous admin visitors to sign-in", async () => {
-    mockGetOrCreateUser.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(null);
 
     await expect(AdminLayout({ children: <p>Admin child</p> })).rejects.toThrow(
       "redirect:/sign-in",
@@ -123,15 +134,20 @@ describe("layouts", () => {
   });
 
   it("renders admin chrome for admins", async () => {
-    mockGetOrCreateUser.mockResolvedValue({ ...user, role: "admin" });
+    mockGetCurrentUser.mockResolvedValue({ ...user, role: "admin" });
 
     render(await AdminLayout({ children: <p>Admin child</p> }));
 
     expect(screen.getByText("Admin child")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Volver al dashboard" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Administración de usuarios" }),
+    ).toHaveAttribute(
       "href",
-      "/",
+      "/admin",
     );
-    expect(screen.getByTestId("user-button")).toBeInTheDocument();
+    expect(screen.getByTestId("user-menu")).toHaveAttribute(
+      "data-email",
+      user.email,
+    );
   });
 });

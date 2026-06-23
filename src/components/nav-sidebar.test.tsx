@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NavSidebar } from "@/components/nav-sidebar";
 
@@ -32,7 +32,7 @@ describe("NavSidebar", () => {
   it("marks the current route as active", () => {
     render(<NavSidebar accessStatus="active" role="user" />);
 
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveClass(
+    expect(screen.getByRole("link", { name: "Panel" })).toHaveClass(
       "bg-zinc-900",
     );
     expect(screen.getByRole("link", { name: "Subir snapshot" })).not.toHaveClass(
@@ -43,27 +43,22 @@ describe("NavSidebar", () => {
   it("shows only waiting-safe navigation for pending users", () => {
     render(<NavSidebar accessStatus="pending" role="user" />);
 
-    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Panel" })).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Perfil de inversión" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Activos líquidos" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Subir snapshot" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Historial" }),
+      screen.queryByRole("link", { name: "Revisiones" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Reviews" })).not.toBeInTheDocument();
   });
 
   it("lets paused users read history and reviews without upload access", () => {
     render(<NavSidebar accessStatus="paused" role="user" />);
 
-    expect(screen.getByRole("link", { name: "Historial" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Reviews" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Revisiones" })).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Subir snapshot" }),
     ).not.toBeInTheDocument();
@@ -74,11 +69,17 @@ describe("NavSidebar", () => {
       <NavSidebar accessStatus="active" role="user" />,
     );
 
-    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Administración/ }),
+    ).not.toBeInTheDocument();
 
     rerender(<NavSidebar accessStatus="pending" role="admin" />);
 
-    expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute(
+    fireEvent.click(screen.getByRole("button", { name: /Administración/ }));
+
+    expect(
+      screen.getByRole("link", { name: "Administración de usuarios" }),
+    ).toHaveAttribute(
       "href",
       "/admin",
     );

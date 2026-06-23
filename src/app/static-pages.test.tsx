@@ -1,29 +1,105 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import DeniedPage from "@/app/(app)/denied/page";
 import HistoryPage from "@/app/(app)/history/page";
 import PortfolioUploadPage from "@/app/(app)/portfolio/upload/page";
-import ReviewsPage from "@/app/(app)/reviews/page";
-import LiquidAssetsPage from "@/app/(app)/settings/liquid-assets/page";
+import PasswordSettingsPage from "@/app/(app)/settings/password/page";
 import WaitingPage from "@/app/(app)/waiting/page";
+import ForgotPasswordPage from "@/app/forgot-password/page";
+import ResetPasswordPage from "@/app/reset-password/page";
 import SignInPage from "@/app/sign-in/[[...sign-in]]/page";
 import SignUpPage from "@/app/sign-up/[[...sign-up]]/page";
 
-vi.mock("@clerk/nextjs", () => ({
-  SignIn: (props: Record<string, unknown>) => (
-    <div data-path={props.path as string} data-testid="sign-in" />
+const {
+  mockGetCurrentUser,
+  mockGetLiquidAssetsForUser,
+  mockHasInvestmentProfile,
+  mockRedirect,
+} = vi.hoisted(() => ({
+  mockGetCurrentUser: vi.fn(),
+  mockGetLiquidAssetsForUser: vi.fn(),
+  mockHasInvestmentProfile: vi.fn(),
+  mockRedirect: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({ redirect: mockRedirect }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/link", () => ({
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => <a href={href}>{children}</a>,
+}));
+vi.mock("@/components/auth-forms", () => ({
+  ForgotPasswordForm: () => <div data-testid="forgot-password-form" />,
+  ResetPasswordForm: ({ token }: { token: string }) => (
+    <div data-testid="reset-password-form">{token}</div>
   ),
-  SignUp: (props: Record<string, unknown>) => (
-    <div data-path={props.path as string} data-testid="sign-up" />
+  SignInForm: () => <div data-testid="sign-in-form" />,
+  SignUpForm: () => <div data-testid="sign-up-form" />,
+}));
+vi.mock("@/components/change-password-form", () => ({
+  ChangePasswordForm: () => <div data-testid="change-password-form" />,
+}));
+vi.mock("@/components/portfolio/portfolio-upload-workspace", () => ({
+  PortfolioUploadWorkspace: ({
+    canEditLiquid,
+    editorText,
+    hasInvestmentProfile,
+  }: {
+    canEditLiquid: boolean;
+    editorText: string;
+    hasInvestmentProfile: boolean;
+  }) => (
+    <div
+      data-can-edit-liquid={String(canEditLiquid)}
+      data-has-profile={String(hasInvestmentProfile)}
+      data-testid="portfolio-upload-workspace"
+    >
+      CSV {editorText}
+    </div>
   ),
+}));
+vi.mock("@/lib/users", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/liquid-assets", () => ({
+  getLiquidAssetsForUser: mockGetLiquidAssetsForUser,
+  getLiquidAssetsEditorText: () => "ARS: 100000",
+  upsertLiquidAssets: vi.fn(),
+}));
+vi.mock("@/lib/investment-profile", () => ({
+  userHasSavedInvestmentProfile: mockHasInvestmentProfile,
+}));
+vi.mock("@/app/(app)/reviews/actions", () => ({
+  requestReviewAction: vi.fn(),
 }));
 
 describe("static app pages", () => {
+  beforeEach(() => {
+    mockGetCurrentUser.mockResolvedValue({
+      id: "app_user_123",
+      accessStatus: "active",
+      role: "user",
+      email: "user@example.com",
+    });
+    mockGetLiquidAssetsForUser.mockResolvedValue([]);
+    mockHasInvestmentProfile.mockResolvedValue(true);
+    mockRedirect.mockReset();
+  });
+
+  it("redirects the legacy history route to the dashboard", () => {
+    mockRedirect.mockImplementation((path: string) => {
+      throw new Error(`redirect:${path}`);
+    });
+
+    expect(() => HistoryPage()).toThrow("redirect:/");
+  });
+
   it.each([
-    [HistoryPage, "Historial", "Próximamente: gráficos"],
-    [ReviewsPage, "Reviews", "Próximamente: listado"],
-    [LiquidAssetsPage, "Activos líquidos", "Próximamente: declará"],
     [DeniedPage, "Acceso denegado", "Tu solicitud de acceso fue rechazada"],
+    [PasswordSettingsPage, "Contraseña", "Cambiá tu contraseña"],
   ])("renders %s", (Page, heading, copy) => {
     render(<Page />);
 
@@ -31,14 +107,19 @@ describe("static app pages", () => {
     expect(screen.getByText(new RegExp(copy))).toBeInTheDocument();
   });
 
-  it("renders the portfolio upload placeholder and CSV tab", () => {
-    render(<PortfolioUploadPage />);
+  it("renders the portfolio upload workspace and CSV state", async () => {
+    render(await PortfolioUploadPage());
 
     expect(
       screen.getByRole("heading", { name: "Subir snapshot" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("CSV")).toBeInTheDocument();
-    expect(screen.getByText(/Implementación del parser/)).toBeInTheDocument();
+    const workspace = screen.getByTestId("portfolio-upload-workspace");
+
+    expect(within(workspace).getByText(/CSV/)).toBeInTheDocument();
+    expect(workspace).toHaveAttribute(
+      "data-has-profile",
+      "true",
+    );
   });
 
   it("renders waiting guidance links", () => {
@@ -51,19 +132,42 @@ describe("static app pages", () => {
       "href",
       "/settings/investment-profile",
     );
-    expect(screen.getByRole("link", { name: "activos líquidos" })).toHaveAttribute(
-      "href",
-      "/settings/liquid-assets",
-    );
   });
 
-  it("renders Clerk sign-in and sign-up shells with path routing", () => {
-    const { rerender } = render(<SignInPage />);
+  it("renders auth form shells", async () => {
+    const { rerender } = render(
+      await SignInPage({ searchParams: Promise.resolve({ reset: "1" }) }),
+    );
 
-    expect(screen.getByTestId("sign-in")).toHaveAttribute("data-path", "/sign-in");
+    expect(screen.getByTestId("sign-in-form")).toBeInTheDocument();
+    expect(screen.getByText(/Tu contraseña fue restablecida/)).toBeInTheDocument();
 
     rerender(<SignUpPage />);
 
-    expect(screen.getByTestId("sign-up")).toHaveAttribute("data-path", "/sign-up");
+    expect(screen.getByTestId("sign-up-form")).toBeInTheDocument();
+  });
+
+  it("renders forgot and reset password states", async () => {
+    const { rerender } = render(<ForgotPasswordPage />);
+
+    expect(screen.getByTestId("forgot-password-form")).toBeInTheDocument();
+
+    rerender(
+      await ResetPasswordPage({
+        searchParams: Promise.resolve({ token: "reset-token" }),
+      }),
+    );
+    expect(screen.getByTestId("reset-password-form")).toHaveTextContent(
+      "reset-token",
+    );
+
+    rerender(
+      await ResetPasswordPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Enlace inválido" }),
+    ).toBeInTheDocument();
   });
 });
