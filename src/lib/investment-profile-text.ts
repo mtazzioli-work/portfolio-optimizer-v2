@@ -17,7 +17,8 @@ export function getProfileEditorText(
 }
 
 export function toInvestmentRules(stored: unknown): InvestmentRules {
-  const { profileEditorText: _, ...rules } = stored as StoredInvestmentProfile;
+  const rules = { ...(stored as StoredInvestmentProfile) };
+  delete rules.profileEditorText;
   return rules;
 }
 
