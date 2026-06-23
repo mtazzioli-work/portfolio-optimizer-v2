@@ -14,8 +14,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 const user: User = {
-  clerkUserId: "user_123",
+  id: "user-id",
   email: "user@example.com",
+  passwordHash: "hash",
+  sessionVersion: 0,
   accessStatus: "active",
   role: "user",
   monthlyReviewLimit: null,
