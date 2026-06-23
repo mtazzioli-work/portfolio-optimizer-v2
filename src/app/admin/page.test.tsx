@@ -6,6 +6,7 @@ const {
   mockCountClaudeReviewsThisMonth,
   mockDb,
   mockGetEffectiveLimit,
+  mockGetMonthlyTokenUsage,
   mockGetMonthlyReviewLimitDefault,
 } = vi.hoisted(() => ({
   mockCountClaudeReviewsThisMonth: vi.fn(),
@@ -13,11 +14,13 @@ const {
     select: vi.fn(),
   },
   mockGetEffectiveLimit: vi.fn(),
+  mockGetMonthlyTokenUsage: vi.fn(),
   mockGetMonthlyReviewLimitDefault: vi.fn(),
 }));
 
 vi.mock("@/db", () => ({ db: mockDb }));
 vi.mock("@/app/admin/actions", () => ({
+  resetUserPassword: vi.fn(),
   updateMonthlyReviewLimitDefault: vi.fn(),
   updateUserAccessStatus: vi.fn(),
   updateUserMonthlyReviewLimitFromForm: vi.fn(),
@@ -25,6 +28,7 @@ vi.mock("@/app/admin/actions", () => ({
 vi.mock("@/lib/quota", () => ({
   countClaudeReviewsThisMonth: mockCountClaudeReviewsThisMonth,
   getEffectiveLimit: mockGetEffectiveLimit,
+  getMonthlyTokenUsage: mockGetMonthlyTokenUsage,
 }));
 vi.mock("@/lib/settings", () => ({
   getMonthlyReviewLimitDefault: mockGetMonthlyReviewLimitDefault,
@@ -34,6 +38,7 @@ import AdminPage from "@/app/admin/page";
 
 const users: User[] = [
   {
+    id: "pending_1_id",
     clerkUserId: "pending_1",
     email: "pending@example.com",
     accessStatus: "pending",
@@ -43,6 +48,7 @@ const users: User[] = [
     updatedAt: new Date("2026-01-04T00:00:00.000Z"),
   },
   {
+    id: "active_1_id",
     clerkUserId: "active_1",
     email: "active@example.com",
     accessStatus: "active",
@@ -52,6 +58,7 @@ const users: User[] = [
     updatedAt: new Date("2026-01-03T00:00:00.000Z"),
   },
   {
+    id: "paused_1_id",
     clerkUserId: "paused_1",
     email: "paused@example.com",
     accessStatus: "paused",
@@ -61,6 +68,7 @@ const users: User[] = [
     updatedAt: new Date("2026-01-02T00:00:00.000Z"),
   },
   {
+    id: "denied_1_id",
     clerkUserId: "denied_1",
     email: "denied@example.com",
     accessStatus: "denied",
@@ -87,11 +95,15 @@ describe("AdminPage", () => {
     mockUserRows(users);
     mockGetMonthlyReviewLimitDefault.mockResolvedValue(3);
     mockCountClaudeReviewsThisMonth.mockImplementation((id: string) =>
-      Promise.resolve(id === "active_1" ? 2 : 0),
+      Promise.resolve(id === "active_1_id" ? 2 : 0),
     );
     mockGetEffectiveLimit.mockImplementation((user: User) =>
       Promise.resolve(user.monthlyReviewLimit ?? 3),
     );
+    mockGetMonthlyTokenUsage.mockResolvedValue({
+      totalTokens: 0,
+      totalCostUsd: 0,
+    });
   });
 
   it("renders users with status-specific actions and quota limits", async () => {

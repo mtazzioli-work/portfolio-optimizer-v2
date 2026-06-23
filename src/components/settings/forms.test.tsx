@@ -76,6 +76,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );
@@ -95,6 +97,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );
@@ -112,6 +116,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit={false}
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );
@@ -130,6 +136,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );
