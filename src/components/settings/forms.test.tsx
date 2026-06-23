@@ -24,6 +24,7 @@ describe("ApplyTemplateForm", () => {
       <ApplyTemplateForm
         templateId="moderate"
         isActive={false}
+        hasExistingText={false}
         applyTemplate={applyTemplate}
       />,
     );
@@ -42,6 +43,7 @@ describe("ApplyTemplateForm", () => {
       <ApplyTemplateForm
         templateId="conservative"
         isActive
+        hasExistingText={false}
         applyTemplate={vi.fn()}
       />,
     );
@@ -58,6 +60,7 @@ describe("ApplyTemplateForm", () => {
       <ApplyTemplateForm
         templateId="aggressive"
         isActive={false}
+        hasExistingText={false}
         applyTemplate={vi.fn()}
       />,
     );
@@ -76,6 +79,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );
@@ -95,6 +100,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );
@@ -112,6 +119,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit={false}
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );
@@ -130,6 +139,8 @@ describe("InvestmentProfileEditor", () => {
       <InvestmentProfileEditor
         initialText="Initial profile"
         canEdit
+        chipSections={[]}
+        hasSavedText
         saveProfile={vi.fn()}
       />,
     );

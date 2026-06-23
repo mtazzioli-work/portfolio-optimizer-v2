@@ -6,6 +6,7 @@ const {
   mockCountClaudeReviewsThisMonth,
   mockDb,
   mockGetEffectiveLimit,
+  mockGetMonthlyTokenUsage,
   mockGetMonthlyReviewLimitDefault,
 } = vi.hoisted(() => ({
   mockCountClaudeReviewsThisMonth: vi.fn(),
@@ -13,11 +14,13 @@ const {
     select: vi.fn(),
   },
   mockGetEffectiveLimit: vi.fn(),
+  mockGetMonthlyTokenUsage: vi.fn(),
   mockGetMonthlyReviewLimitDefault: vi.fn(),
 }));
 
 vi.mock("@/db", () => ({ db: mockDb }));
 vi.mock("@/app/admin/actions", () => ({
+  resetUserPassword: vi.fn(),
   updateMonthlyReviewLimitDefault: vi.fn(),
   updateUserAccessStatus: vi.fn(),
   updateUserMonthlyReviewLimitFromForm: vi.fn(),
@@ -25,6 +28,7 @@ vi.mock("@/app/admin/actions", () => ({
 vi.mock("@/lib/quota", () => ({
   countClaudeReviewsThisMonth: mockCountClaudeReviewsThisMonth,
   getEffectiveLimit: mockGetEffectiveLimit,
+  getMonthlyTokenUsage: mockGetMonthlyTokenUsage,
 }));
 vi.mock("@/lib/settings", () => ({
   getMonthlyReviewLimitDefault: mockGetMonthlyReviewLimitDefault,
@@ -34,8 +38,10 @@ import AdminPage from "@/app/admin/page";
 
 const users: User[] = [
   {
-    clerkUserId: "pending_1",
+    id: "pending_1",
     email: "pending@example.com",
+    passwordHash: "hash",
+    sessionVersion: 0,
     accessStatus: "pending",
     role: "user",
     monthlyReviewLimit: null,
@@ -43,8 +49,10 @@ const users: User[] = [
     updatedAt: new Date("2026-01-04T00:00:00.000Z"),
   },
   {
-    clerkUserId: "active_1",
+    id: "active_1",
     email: "active@example.com",
+    passwordHash: "hash",
+    sessionVersion: 0,
     accessStatus: "active",
     role: "user",
     monthlyReviewLimit: 8,
@@ -52,8 +60,10 @@ const users: User[] = [
     updatedAt: new Date("2026-01-03T00:00:00.000Z"),
   },
   {
-    clerkUserId: "paused_1",
+    id: "paused_1",
     email: "paused@example.com",
+    passwordHash: "hash",
+    sessionVersion: 0,
     accessStatus: "paused",
     role: "user",
     monthlyReviewLimit: null,
@@ -61,8 +71,10 @@ const users: User[] = [
     updatedAt: new Date("2026-01-02T00:00:00.000Z"),
   },
   {
-    clerkUserId: "denied_1",
+    id: "denied_1",
     email: "denied@example.com",
+    passwordHash: "hash",
+    sessionVersion: 0,
     accessStatus: "denied",
     role: "admin",
     monthlyReviewLimit: null,
@@ -92,6 +104,10 @@ describe("AdminPage", () => {
     mockGetEffectiveLimit.mockImplementation((user: User) =>
       Promise.resolve(user.monthlyReviewLimit ?? 3),
     );
+    mockGetMonthlyTokenUsage.mockResolvedValue({
+      totalTokens: 0,
+      totalCostUsd: 0,
+    });
   });
 
   it("renders users with status-specific actions and quota limits", async () => {

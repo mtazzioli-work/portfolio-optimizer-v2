@@ -3,21 +3,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@/db/schema";
 
-const { mockClerkProvider, mockGetOrCreateUser, mockRedirect } = vi.hoisted(() => ({
-  mockClerkProvider: vi.fn(({ children }: { children: React.ReactNode }) => children),
-  mockGetOrCreateUser: vi.fn(),
+const { mockGetCurrentUser, mockHeaders, mockRedirect } = vi.hoisted(() => ({
+  mockGetCurrentUser: vi.fn(),
+  mockHeaders: vi.fn(),
   mockRedirect: vi.fn(),
-}));
-
-vi.mock("@clerk/nextjs", () => ({
-  ClerkProvider: mockClerkProvider,
-  UserButton: () => <div data-testid="user-button" />,
 }));
 
 vi.mock("next/font/google", () => ({
   Geist: () => ({ variable: "geist-sans" }),
   Geist_Mono: () => ({ variable: "geist-mono" }),
 }));
+vi.mock("sonner", () => ({ Toaster: () => <div data-testid="toaster" /> }));
 
 vi.mock("next/link", () => ({
   default: ({
@@ -32,8 +28,11 @@ vi.mock("next/link", () => ({
 vi.mock("next/navigation", () => ({
   redirect: mockRedirect,
 }));
+vi.mock("next/headers", () => ({
+  headers: mockHeaders,
+}));
 
-vi.mock("@/lib/users", () => ({ getOrCreateUser: mockGetOrCreateUser }));
+vi.mock("@/lib/users", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/components/access-guard", () => ({
   AccessGuard: ({
     children,
@@ -48,14 +47,24 @@ vi.mock("@/components/nav-sidebar", () => ({
     <nav data-role={role} data-status={accessStatus} />
   ),
 }));
+vi.mock("@/components/admin/admin-subnav", () => ({
+  AdminSubnav: () => <div data-testid="admin-subnav" />,
+}));
+vi.mock("@/components/user-menu", () => ({
+  UserMenu: ({ email }: { email: string }) => (
+    <div data-testid="user-menu">{email}</div>
+  ),
+}));
 
 import AppLayout from "@/app/(app)/layout";
 import AdminLayout from "@/app/admin/layout";
 import RootLayout, { metadata } from "@/app/layout";
 
 const user: User = {
-  clerkUserId: "user_123",
+  id: "user-id",
   email: "user@example.com",
+  passwordHash: "hash",
+  sessionVersion: 0,
   accessStatus: "active",
   role: "user",
   monthlyReviewLimit: null,
@@ -69,7 +78,8 @@ describe("layouts", () => {
     mockRedirect.mockImplementation((path: string) => {
       throw new Error(`redirect:${path}`);
     });
-    mockGetOrCreateUser.mockResolvedValue(user);
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockHeaders.mockResolvedValue({ get: () => "/" });
   });
 
   it("exports app metadata", () => {
@@ -79,21 +89,20 @@ describe("layouts", () => {
     });
   });
 
-  it("wraps the application in Clerk and renders the disclaimer footer", () => {
+  it("renders the root shell and disclaimer footer", () => {
     const markup = renderToStaticMarkup(
       <RootLayout>
         <main>Root child</main>
       </RootLayout>,
     );
 
-    expect(mockClerkProvider).toHaveBeenCalledOnce();
-    expect(markup).toContain('lang="es"');
+    expect(markup).toContain('lang="es-419"');
     expect(markup).toContain("Root child");
     expect(markup).toContain("No constituye asesoramiento financiero");
   });
 
   it("redirects app layout visitors without a user to sign-in", async () => {
-    mockGetOrCreateUser.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(null);
 
     await expect(
       AppLayout({ children: <p>Protected child</p> }),
@@ -104,7 +113,7 @@ describe("layouts", () => {
     render(await AppLayout({ children: <p>Protected child</p> }));
 
     expect(screen.getByText("Protected child")).toBeInTheDocument();
-    expect(screen.getByTestId("user-button")).toBeInTheDocument();
+    expect(screen.getByTestId("user-menu")).toHaveTextContent(user.email);
     expect(screen.getByRole("navigation")).toHaveAttribute("data-status", "active");
   });
 
@@ -115,7 +124,7 @@ describe("layouts", () => {
   });
 
   it("redirects anonymous admin visitors to sign-in", async () => {
-    mockGetOrCreateUser.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(null);
 
     await expect(AdminLayout({ children: <p>Admin child</p> })).rejects.toThrow(
       "redirect:/sign-in",
@@ -123,15 +132,12 @@ describe("layouts", () => {
   });
 
   it("renders admin chrome for admins", async () => {
-    mockGetOrCreateUser.mockResolvedValue({ ...user, role: "admin" });
+    mockGetCurrentUser.mockResolvedValue({ ...user, role: "admin" });
 
     render(await AdminLayout({ children: <p>Admin child</p> }));
 
     expect(screen.getByText("Admin child")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Volver al dashboard" })).toHaveAttribute(
-      "href",
-      "/",
-    );
-    expect(screen.getByTestId("user-button")).toBeInTheDocument();
+    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getByTestId("user-menu")).toHaveTextContent(user.email);
   });
 });

@@ -2,19 +2,39 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "@/db/schema";
 
-const { mockGetOrCreateUser, mockGetQuotaUsage } = vi.hoisted(() => ({
-  mockGetOrCreateUser: vi.fn(),
+const {
+  mockGetCurrentUser,
+  mockGetOnboardingProgress,
+  mockGetQuotaUsage,
+  mockHasReviewsListSeen,
+} = vi.hoisted(() => ({
+  mockGetCurrentUser: vi.fn(),
+  mockGetOnboardingProgress: vi.fn(),
   mockGetQuotaUsage: vi.fn(),
+  mockHasReviewsListSeen: vi.fn(),
 }));
 
-vi.mock("@/lib/users", () => ({ getOrCreateUser: mockGetOrCreateUser }));
+vi.mock("@/components/onboarding/onboarding-checklist", () => ({
+  OnboardingChecklist: () => <div data-testid="onboarding-checklist" />,
+}));
+vi.mock("@/lib/onboarding", () => ({
+  getOnboardingProgress: mockGetOnboardingProgress,
+  shouldShowOnboardingChecklist: (status: string) =>
+    status === "pending" || status === "active",
+}));
+vi.mock("@/lib/onboarding-cookie", () => ({
+  hasReviewsListSeen: mockHasReviewsListSeen,
+}));
+vi.mock("@/lib/users", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/quota", () => ({ getQuotaUsage: mockGetQuotaUsage }));
 
 import DashboardPage from "@/app/(app)/page";
 
 const user: User = {
-  clerkUserId: "user_123",
+  id: "user-id",
   email: "user@example.com",
+  passwordHash: "hash",
+  sessionVersion: 0,
   accessStatus: "active",
   role: "user",
   monthlyReviewLimit: null,
@@ -25,12 +45,20 @@ const user: User = {
 describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetOrCreateUser.mockResolvedValue(user);
-    mockGetQuotaUsage.mockResolvedValue({ used: 1, limit: 3, remaining: 2 });
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockGetQuotaUsage.mockResolvedValue({
+      used: 1,
+      limit: 3,
+      remaining: 2,
+      totalTokens: 0,
+      totalCostUsd: 0,
+    });
+    mockHasReviewsListSeen.mockResolvedValue(false);
+    mockGetOnboardingProgress.mockResolvedValue({ isComplete: true, steps: [] });
   });
 
   it("renders nothing without an app user", async () => {
-    mockGetOrCreateUser.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(null);
 
     const result = await DashboardPage();
 
@@ -41,7 +69,7 @@ describe("DashboardPage", () => {
   it("renders active status and review quota for active users", async () => {
     render(await DashboardPage());
 
-    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Panel" })).toBeInTheDocument();
     expect(screen.getByText("Activo")).toBeInTheDocument();
     expect(screen.getByText("1 / 3 usadas este mes")).toBeInTheDocument();
     expect(screen.getByText("2 restantes (mes calendario, Argentina)")).toBeInTheDocument();
@@ -49,7 +77,7 @@ describe("DashboardPage", () => {
   });
 
   it("renders pending guidance without quota lookup", async () => {
-    mockGetOrCreateUser.mockResolvedValue({
+    mockGetCurrentUser.mockResolvedValue({
       ...user,
       accessStatus: "pending",
     });
@@ -62,7 +90,7 @@ describe("DashboardPage", () => {
   });
 
   it("renders paused guidance without quota lookup", async () => {
-    mockGetOrCreateUser.mockResolvedValue({
+    mockGetCurrentUser.mockResolvedValue({
       ...user,
       accessStatus: "paused",
     });
