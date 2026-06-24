@@ -73,6 +73,28 @@ describe("review-amounts", () => {
     expect(fromString?.tranches).toHaveLength(2);
   });
 
+  it("resolves market and custom strategy labels", () => {
+    const createdAt = new Date("2026-01-15T12:00:00Z");
+    const market = resolveEntryTranches(
+      { strategy: "market", summary: "Comprar a mercado" },
+      500,
+      createdAt,
+    );
+    expect(market?.strategyLabel).toBe("Mercado");
+    expect(market?.tranches[0].timing).toBe("Inmediato");
+
+    const custom = resolveEntryTranches(
+      {
+        strategy: "ladder",
+        summary: "Escalonado",
+        tranches: [{ pctOfAllocation: 100, timing: "Cuando confirme" }],
+      },
+      500,
+      createdAt,
+    );
+    expect(custom?.strategyLabel).toBe("ladder");
+  });
+
   it("returns null for entry plans without resolvable tranches", () => {
     const createdAt = new Date("2026-01-15T12:00:00Z");
 

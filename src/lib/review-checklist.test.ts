@@ -25,6 +25,12 @@ describe("review-checklist", () => {
           symbol: "TSLA",
           positionValue: 2500,
         } as never,
+        {
+          id: "p2",
+          snapshotId: "s1",
+          symbol: "tsla",
+          positionValue: 500,
+        } as never,
       ],
       new Date("2026-02-01T00:00:00Z"),
     );
@@ -35,6 +41,7 @@ describe("review-checklist", () => {
     expect(rows.some((r) => r.action === "VENTA" && r.ticker === "TSLA")).toBe(
       true,
     );
+    expect(rows.find((r) => r.action === "VENTA")?.amountUsd).toBe(3000);
   });
 
   it("warns when tranches cannot be resolved", () => {
@@ -73,6 +80,33 @@ describe("review-checklist", () => {
 
     const rows = buildOrderChecklist(result, 0, [], new Date("2026-01-01"));
     expect(rows[0].warning).toContain("Sin posición");
+  });
+
+  it("ignores blank and zero-value positions when matching sells", () => {
+    const result = minimalAnalysisResult({
+      sellHoldWatch: [
+        {
+          symbol: "XYZ",
+          action: "SELL",
+          technicalReason: ["Salir"],
+        },
+      ],
+      topDestinations: [],
+    });
+
+    const rows = buildOrderChecklist(
+      result,
+      0,
+      [
+        { symbol: "", positionValue: 100 } as never,
+        { symbol: "XYZ", positionValue: 0 } as never,
+      ],
+      new Date("2026-01-01"),
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountUsd).toBeNull();
+    expect(rows[0].warning).toBe("Sin posición en el snapshot");
   });
 
   it("skips duplicate sell symbols", () => {

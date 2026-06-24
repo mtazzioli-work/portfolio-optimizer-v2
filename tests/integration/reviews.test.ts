@@ -256,6 +256,21 @@ describe("integration: requestReview", () => {
     expect(context?.positions).toEqual([{ symbol: "VTI", positionValue: 1000 }]);
   });
 
+  it("uses null snapshot metadata when review detail snapshot is missing", async () => {
+    selectResults.push(
+      [{ id: "review-1", userId: "user_1", snapshotId: "snap-1" }],
+      [],
+      [],
+    );
+
+    const { getReviewDetailContext } = await import("@/lib/reviews");
+    const context = await getReviewDetailContext("review-1", "user_1");
+
+    expect(context?.snapshotCapturedAt).toBeNull();
+    expect(context?.snapshotTotalValueUsd).toBeNull();
+    expect(context?.positions).toEqual([]);
+  });
+
   it("returns null review detail context when the review is not visible", async () => {
     selectResults.push([]);
 
